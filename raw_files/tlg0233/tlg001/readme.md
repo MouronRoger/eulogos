@@ -1,1 +1,0 @@
-This file has been maintained because the compliant file rearranged the sections significantly.

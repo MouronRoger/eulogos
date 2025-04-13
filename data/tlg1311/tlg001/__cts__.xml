@@ -1,8 +1,14 @@
-<ti:work xmlns:ti="http://chs.harvard.edu/xmlns/cts" groupUrn="urn:cts:greekLit:tlg1311"
-	xml:lang="grc" urn="urn:cts:greekLit:tlg1311.tlg001">
-	<ti:title xml:lang="lat">Didache XII Apostolorum</ti:title>
-	<ti:edition urn="urn:cts:greekLit:tlg1311.tlg001.1st1K-grc1" workUrn="urn:cts:greekLit:tlg1311.tlg001" xml:lang="grc">
-		<ti:label xml:lang="grc">Διδαχή των Δώδεκα Ἀποστόλων</ti:label>
-		<ti:description xml:lang="eng">Didache. The Apostolic Fathers with an English Translation In Two Volumes. Vol. I. Lake, Kirsopp, editor. Cambridge, MA: Harvard University Press; London: William Heinemann Ltd. 1912.</ti:description>
-	</ti:edition>
+<?xml version="1.0" encoding="UTF-8"?>
+<ti:work xmlns:ti="http://chs.harvard.edu/xmlns/cts" groupUrn="urn:cts:greekLit:tlg1311" urn="urn:cts:greekLit:tlg1311.tlg001" xml:lang="grc">
+
+   
+   <ti:title xml:lang="eng">Didache</ti:title>
+   
+   <ti:translation urn="urn:cts:greekLit:tlg1311.tlg001.perseus-eng1" xml:lang="eng" workUrn="urn:cts:greekLit:tlg1311.tlg001">
+      <ti:label xml:lang="eng">The Didache, or Teaching of the Twelve Apostles</ti:label>
+      <ti:description xml:lang="eng">Didache. The Apostolic Fathers with an English translation In Two Volumes. Vol. I. Lake, Kirsopp, translator. Cambridge, MA: Harvard University Press; London: William Heinemann Ltd. 1912.</ti:description>
+   </ti:translation>
+   
+ 
+
 </ti:work>
