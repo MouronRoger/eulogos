@@ -1,21 +1,21 @@
-# First1KGreek Browser System Specification
+# First1KGreek Browser System Specification (Revised)
 
 ## 1. System Overview
 
-First1KGreek Browser is a web application for accessing, searching, and studying ancient Greek texts from the First 1000 Years Project. The system provides scholars, students, and enthusiasts with tools to browse texts by author or editor, read works with specialized viewing options, search across the corpus, and import new texts from external sources such as Scaife/Perseus.
+First1KGreek Browser is a web application for accessing, viewing, and managing ancient Greek texts from the First 1000 Years Project. The system provides scholars, students, and enthusiasts with tools to browse texts by author, read works with specialized viewing options, and manage their collection through archiving and filtering capabilities.
 
 ### 1.1 Core Assets
 
 - TEI XML files containing Greek texts and metadata
 - Author catalog in JSON format
-- Import functionality from Scaife Digital Library
+- CTS URN-based reference system
 
 ### 1.2 Target Users
 
 - Classical scholars and researchers
 - Students of ancient Greek literature
 - Digital humanities practitioners
-- General readers interested in ancient texts
+- General readers interested in ancient Greek texts
 
 ## 2. Technology Stack
 
@@ -35,347 +35,317 @@ First1KGreek Browser is a web application for accessing, searching, and studying
 
 ### 2.3 Data Storage
 
-#### Initial Phase
-- File-based storage (XML files and JSON catalog)
-- Local filesystem organization
+#### Phase 1 (Current)
+- Unified JSON catalog combining author and text metadata
+- TEI XML files organized by CTS URN structure
+- File-based storage and organization
 
-#### Future Extensions
-- PostgreSQL for relational data
-- Vector database for embeddings (e.g., Pinecone or Qdrant)
+#### Future Phases (For Reference)
+- Phase 2: PostgreSQL for relational data
+- Phase 3: Vector database for embeddings
 
 ## 3. Data Model
 
-### 3.1 Core Entities
+### 3.1 Unified Catalog Structure
 
-#### 3.1.1 Author
+```json
+{
+  "statistics": {
+    "nodeCount": 275030,
+    "greekWords": 25580179,
+    "authorCount": 1024,
+    "textCount": 9876
+  },
+  "authors": {
+    "tlg0007": {
+      "name": "Plutarch",
+      "century": 1,
+      "type": "Platonist"
+    },
+    "tlg0012": {
+      "name": "Homer", 
+      "century": -8,
+      "type": "Poet"
+    }
+    // more authors...
+  },
+  "catalog": [
+    {
+      "urn": "urn:cts:greekLit:tlg0007.tlg136.perseus-grc2",
+      "group_name": "Plutarch",
+      "work_name": "De Stoicorum Repugnantiis",
+      "language": "grc",
+      "wordcount": 8750,
+      "scaife": "https://scaife.perseus.org/...",
+      "author_id": "tlg0007",
+      "archived": false
+    }
+    // more catalog entries...
+  ]
+}
+```
+
+### 3.2 Core Pydantic Models
+
 ```python
 class Author(BaseModel):
-    id: str  # e.g., "tlg0001"
+    """Author model."""
     name: str
-    century: Optional[int] = None  # Negative for BCE, positive for CE
-    type: Optional[str] = None  # e.g., "historian", "philosopher" 
+    century: int  # Negative for BCE, positive for CE
+    type: str
+    archived: bool = False
+
+class Text(BaseModel):
+    """Text model with author reference."""
+    urn: str
+    group_name: str
+    work_name: str
+    language: str
+    wordcount: int
+    scaife: Optional[str] = None
+    author_id: Optional[str] = None
+    archived: bool = False
+    
+    # Derived fields
+    namespace: Optional[str] = Field(None, exclude=True)
+    textgroup: Optional[str] = Field(None, exclude=True)
+    work_id: Optional[str] = Field(None, exclude=True)
+    version: Optional[str] = Field(None, exclude=True)
 ```
 
-#### 3.1.2 Work
-```python
-class Work(BaseModel):
-    id: str  # e.g., "tlg001"
-    title: str
-    author_id: str  # Reference to author
-    language: str = "grc"  # Default Greek, "eng" for English
-    file_paths: List[str]  # Paths to XML files
-```
-
-#### 3.1.3 Edition
-```python
-class Edition(BaseModel):
-    id: str  # e.g., "perseus-grc2"
-    work_id: str  # Reference to work
-    editor: Optional[str] = None
-    date: Optional[str] = None
-    language: str = "grc"
-    file_path: str  # Path to XML file
-```
-
-#### 3.1.4 UserPreference (Client-side storage initially)
-```python
-class UserPreference(BaseModel):
-    favorites: List[str] = []  # IDs of favorited items
-    archived: List[str] = []  # IDs of archived items
-    view_settings: Dict[str, Any] = {}  # UI preferences
-```
-
-### 3.2 File Structure
+### 3.3 File Structure
 
 ```
 data/
-├── authors.json                       # Author catalog
-├── {author_id}/                       # e.g., tlg0001/
-│   ├── __cts__.xml                    # Author metadata
-│   ├── {work_id}/                     # e.g., tlg001/
-│       ├── __cts__.xml                # Work metadata
-│       ├── {full_id}.xml              # e.g., tlg0001.tlg001.perseus-grc2.xml
+├── unified-catalog.json            # Combined author and catalog data
+├── greekLit/                       # Namespace directory
+│   ├── tlg0007/                    # Author directory (textgroup)
+│   │   ├── tlg136/                 # Work directory
+│   │   │   ├── tlg0007.tlg136.perseus-grc2.xml  # Text file
 ```
 
-## 4. System Architecture
+## 4. Phase 1 Core Features
 
-### 4.1 Component Diagram
+### 4.1 Author-Works Tree Browser
+
+A hierarchical browser that serves as the main navigation interface:
+
+1. Authors listed alphabetically or by filter criteria
+2. Each author expandable to show all works in a vertical tree structure
+3. Works organized by title or identifier
+4. Visual indicators for archived items
+5. Quick access to view, archive, or delete functionality
+
+### 4.2 Filtering and Sorting
+
+1. **Author Filtering**:
+   - By century (dropdown or range selector)
+   - By type (dropdown for poet, historian, etc.)
+   - By name (text search)
+
+2. **Work Filtering**:
+   - By language (primarily Greek)
+   - By word count (range selector)
+   - By title (text search)
+
+3. **Sorting Options**:
+   - Authors: alphabetical, chronological, by type
+   - Works: alphabetical, by size, by identifier
+
+### 4.3 Archive Management
+
+1. **Archiving Functionality**:
+   - Toggle to archive/unarchive authors
+   - Toggle to archive/unarchive individual works
+   - Batch archive/unarchive operations
+   - Archived items remain in the system but are hidden by default
+
+2. **Archive View**:
+   - Dedicated view for browsing archived content
+   - Option to restore items from archive
+   - Filter and sort capabilities within archive view
+
+### 4.4 XML Record Management
+
+1. **Deletion Functionality**:
+   - Option to permanently delete XML records
+   - Confirmation dialog with impact assessment
+   - Catalog update upon deletion
+
+2. **XML Viewer**:
+   - Basic viewer for TEI XML files
+   - Syntax highlighting for better readability
+   - Optional simplified reading view
+
+### 4.5 Basic Search
+
+1. Simple full-text search across author names and work titles
+2. Basic filtering of search results
+3. Direct navigation from search results to texts
+
+## 5. System Architecture
+
+### 5.1 Component Diagram
 
 ```
 ┌───────────────────┐     ┌───────────────────┐     ┌───────────────────┐
 │                   │     │                   │     │                   │
-│  Web Browser      │◄───►│  FastAPI Backend  │◄───►│  XML/JSON Storage │
-│  HTMX + Alpine.js │     │  Python Services  │     │  File-based       │
+│  Web Browser      │◄───►│  FastAPI Backend  │◄───►│  Unified Catalog  │
+│  HTMX + Alpine.js │     │  Python Services  │     │  & XML Files      │
 │                   │     │                   │     │                   │
 └───────────────────┘     └───────────────────┘     └───────────────────┘
-                                  ▲
-                                  │
-                                  ▼
-                          ┌───────────────────┐
-                          │                   │
-                          │  External APIs    │
-                          │  (Scaife/Perseus) │
-                          │                   │
-                          └───────────────────┘
 ```
 
-### 4.2 API Structure
+### 5.2 API Endpoints
 
-#### Authors API
-- `GET /api/authors` - List all authors with optional filtering
-- `GET /api/authors/{id}` - Get author details
-- `GET /api/authors/{id}/works` - List works for author
-
-#### Works API
-- `GET /api/works/{id}` - Get work details
-- `GET /api/works/{id}/editions` - List editions of work
-- `GET /api/editions/{id}` - Get edition details
+#### Catalog API
+- `GET /api/catalog/authors` - List all authors with filtering options
+- `GET /api/catalog/authors/{id}` - Get author details
+- `GET /api/catalog/authors/{id}/works` - List works for author
+- `GET /api/catalog/texts/{urn}` - Get text details
+- `GET /api/catalog/texts` - List texts with filtering options
 
 #### Content API
-- `GET /api/content/{path}` - Get XML content with various rendering options
-- `GET /api/content/{path}/raw` - Get raw XML
-- `GET /api/content/{path}/reader` - Get reader-friendly HTML
+- `GET /api/content/{urn}` - Get XML content with viewing options
+- `GET /api/content/{urn}/raw` - Get raw XML
+- `GET /api/content/{urn}/reader` - Get reader-friendly HTML
 
-#### Import API
-- `POST /api/import/scaife` - Import text from Scaife URL
+#### Archive API
+- `POST /api/archive/author/{id}` - Archive/unarchive author
+- `POST /api/archive/text/{urn}` - Archive/unarchive text
+- `GET /api/archive/authors` - List archived authors
+- `GET /api/archive/texts` - List archived texts
 
-#### Search API
-- `GET /api/search` - Search across corpus
+#### Management API
+- `DELETE /api/manage/author/{id}` - Delete author record
+- `DELETE /api/manage/text/{urn}` - Delete text record
 
-### 4.3 UI Pages
+### 5.3 Core Services
 
-- **Home Page** - Overview and navigation
-- **Authors Browser** - List, sort, filter authors
-- **Author Detail** - View author information and works
-- **Work Reader** - View work content with various display options
-- **Search Interface** - Search the corpus with filters
-- **Import Interface** - Import new texts from Scaife/Perseus
-
-## 5. Functional Requirements
-
-### 5.1 Browsing and Navigation
-
-1. Users shall be able to browse a complete list of authors
-2. Users shall be able to sort authors by name, century, or type
-3. Users shall be able to filter authors by century, type, or search term
-4. Users shall be able to view an author's complete works
-5. Users shall be able to navigate between authors, works, and editions
-
-### 5.2 Reading and Viewing
-
-1. Users shall be able to view original XML with syntax highlighting
-2. Users shall be able to view texts in a reader-friendly format
-3. Users shall be able to adjust display settings (font size, theme)
-4. Users shall be able to see metadata about works and editions
-
-### 5.3 Search Capabilities
-
-1. Users shall be able to search across all texts in the corpus
-2. Users shall be able to search by author, work, or content
-3. Users shall be able to view search results with context
-4. Users shall be able to navigate directly from search results to texts
-
-### 5.4 Import Functionality
-
-1. Users shall be able to import texts from Scaife/Perseus via URL
-2. Users shall be able to provide additional metadata during import
-3. System shall validate and process imported XML
-4. System shall update catalog information after successful import
-
-### 5.5 User Preferences
-
-1. Users shall be able to mark authors and works as favorites
-2. Users shall be able to archive authors and works
-3. System shall store user preferences (initially client-side)
-4. User preferences shall persist between sessions
-
-## 6. Technical Implementation
-
-### 6.1 Backend Services
-
-#### 6.1.1 Catalog Service
-- Manages author and work metadata
-- Provides filtering and sorting capabilities
-- Handles catalog updates during imports
-
-#### 6.1.2 XML Processing Service
-- Parses TEI XML files
-- Extracts metadata and content
-- Transforms XML to various output formats (HTML, plain text)
-
-#### 6.1.3 Search Service
-- Implements text search across corpus
-- Builds and maintains search index
-- Provides relevance-ranked results
-
-#### 6.1.4 Import Service
-- Handles communication with Scaife API
-- Validates and processes imported XML
-- Updates catalog and file structure
-
-### 6.2 Frontend Implementation
-
-#### 6.2.1 HTMX Integration
-- Server-side rendering with dynamic updates
-- Partial page updates for efficient interaction
-- Progressive enhancement for robust functionality
-
-#### 6.2.2 UI Components
-- Author browsing table with sorting and filtering
-- Work reader with display options
-- Search interface with result highlighting
-- Import form with validation
-
-#### 6.2.3 Client-Side Features
-- Local storage for user preferences
-- Theme switching
-- Reading position memory
-
-### 6.3 Data Access Layer
-
-#### 6.3.1 Initial File-Based Implementation
-- JSON parsing for author catalog
-- XML parsing for text content
-- File system operations for storage
-
-#### 6.3.2 Future Database Integration
-- ORM models for database entities
-- Repository pattern for data access
-- Migration utilities from file-based to database storage
-
-## 7. Project Structure
-
-```
-first1kgreek/
-├── app/                      # Main application package
-│   ├── api/                  # FastAPI routers
-│   │   ├── authors.py
-│   │   ├── works.py
-│   │   ├── content.py
-│   │   ├── search.py
-│   │   └── import.py
-│   ├── models/               # Pydantic models
-│   │   ├── author.py
-│   │   ├── work.py
-│   │   └── preferences.py
-│   ├── services/             # Business logic
-│   │   ├── catalog.py        # Author/work catalog management
-│   │   ├── xml_processor.py  # XML parsing and transformation
-│   │   ├── search.py         # Text search implementation
-│   │   └── importer.py       # Import functionality
-│   ├── utils/                # Utility functions
-│   │   ├── paths.py          # Path handling utilities
-│   │   └── xml.py            # XML helper functions
-│   └── main.py               # FastAPI application entry point
-├── static/                   # Static assets
-│   ├── css/                  # Tailwind and custom CSS
-│   ├── js/                   # Alpine.js and custom scripts
-│   └── img/                  # Images and icons
-├── templates/                # Jinja2 templates
-│   ├── base.html             # Base template
-│   ├── partials/             # Reusable template parts
-│   ├── authors/              # Author-related templates
-│   ├── works/                # Work-related templates
-│   ├── search.html           # Search interface
-│   └── import.html           # Import interface
-├── data/                     # Data directory
-│   └── authors.json          # Author catalog
-├── tests/                    # Test suite
-│   ├── unit/                 # Unit tests
-│   └── integration/          # Integration tests
-├── alembic/                  # Database migrations (future)
-├── pyproject.toml            # Project metadata and dependencies
-├── Dockerfile                # Container definition
-└── docker-compose.yml        # Development environment setup
+#### CatalogService
+```python
+class CatalogService:
+    """Service for accessing and managing the unified catalog."""
+    
+    def __init__(self, catalog_path: str = "data/unified-catalog.json"):
+        # Initialize and load catalog
+        
+    def get_author(self, author_id: str) -> Optional[Author]:
+        """Get author by ID."""
+        
+    def get_all_authors(self, archived: bool = False) -> List[Author]:
+        """Get all authors, optionally including archived ones."""
+        
+    def get_text(self, urn: str) -> Optional[Text]:
+        """Get text by URN."""
+        
+    def get_texts_by_author(self, author_id: str, archived: bool = False) -> List[Text]:
+        """Get all texts by author ID, optionally including archived ones."""
+        
+    def archive_author(self, author_id: str, archive: bool = True) -> bool:
+        """Archive or unarchive an author."""
+        
+    def archive_text(self, urn: str, archive: bool = True) -> bool:
+        """Archive or unarchive a text."""
+        
+    def delete_author(self, author_id: str) -> bool:
+        """Delete an author and optionally their works."""
+        
+    def delete_text(self, urn: str) -> bool:
+        """Delete a text record and its file."""
+        
+    def search_catalog(self, query: str, include_archived: bool = False) -> Dict[str, List]:
+        """Search the catalog for authors and texts."""
 ```
 
-## 8. Development Roadmap
+#### XMLProcessorService
+```python
+class XMLProcessorService:
+    """Service for processing TEI XML files."""
+    
+    def __init__(self, base_path: str = "data"):
+        # Initialize with base path
+        
+    def get_file_path(self, urn: str) -> Path:
+        """Get file path from URN."""
+        
+    def load_xml(self, urn: str) -> Optional[ET._Element]:
+        """Load XML content for a text."""
+        
+    def transform_to_html(self, xml_root: ET._Element, options: Dict = None) -> str:
+        """Transform XML to HTML for viewing."""
+        
+    def delete_xml_file(self, urn: str) -> bool:
+        """Delete XML file from filesystem."""
+```
 
-### 8.1 Phase 1: Minimum Viable Product
+## 6. UI Pages and Components
 
-1. **Core Data Model** - Author and work models with file-based storage
-2. **Basic API** - Endpoints for browsing authors and viewing texts
-3. **Simple UI** - Author list, work list, and basic content viewer
-4. **Import Capability** - Basic Scaife import functionality
+### 6.1 Home/Browse Page
+- Author-works tree as main navigation element
+- Filtering and sorting controls
+- Archive toggle buttons
+- Search bar
 
-### 8.2 Phase 2: Enhanced Features
+### 6.2 Text Viewer Page
+- XML/HTML display of text content
+- Metadata panel
+- Navigation controls
+- Archive/delete options
 
-1. **Advanced Browsing** - Sorting, filtering, and search capabilities
-2. **Improved Reader** - Better text display with customization options
-3. **User Preferences** - Favorites, archives, and view settings
-4. **Better Import** - Enhanced import with metadata extraction
+### 6.3 Archive Management Page
+- List of archived authors and works
+- Restore functionality
+- Permanent deletion options
 
-### 8.3 Phase 3: Database Integration
+### 6.4 Search Results Page
+- Matching authors and works
+- Quick filters
+- Direct links to view content
 
-1. **Relational Schema** - PostgreSQL schema design
-2. **ORM Models** - SQLAlchemy models for data entities
-3. **Migration Utilities** - Tools to convert from files to database
-4. **API Refactoring** - Update services to use database repositories
+## 7. Implementation Priorities for Phase 1
 
-### 8.4 Phase 4: Vector Embeddings
+1. **Unified Catalog**:
+   - Implement data validation for existing files
+   - Create merger utility to generate unified catalog
+   - Build efficient indexing and query capabilities
 
-1. **Text Processing** - Extract and clean text for embeddings
-2. **Embedding Generation** - Create vector representations of texts
-3. **Vector Store Integration** - Connect to vector database
-4. **Semantic Search** - Implement similarity-based search
+2. **Core UI**:
+   - Author-works tree navigation
+   - Basic filtering and sorting
+   - XML viewer with syntax highlighting
 
-## 9. Deployment Considerations
+3. **Archive Functionality**:
+   - Implement archive/unarchive toggle
+   - Create archive view
+   - Ensure proper filtering to hide/show archived items
 
-### 9.1 Development Environment
+4. **Management Functions**:
+   - Delete functionality with proper safeguards
+   - Catalog update mechanisms
+   - File system operations
 
-- Docker-based development environment
-- Hot-reloading for code changes
-- Test data for development
+5. **Basic Search**:
+   - Simple catalog search implementation
+   - Result display and navigation
 
-### 9.2 Production Deployment
+## 8. Future Phase Considerations
 
-- Container-based deployment
-- Environment-based configuration
-- Static asset serving through CDN
-- Rate limiting for API endpoints
+### 8.1 Phase 2: Database Integration
+- Design PostgreSQL schema based on the unified catalog structure
+- Create migration path from file-based to database storage
+- Maintain compatibility with Phase 1 functionality
 
-### 9.3 Performance Optimization
+### 8.2 Phase 3: Vectorization
+- Prepare data model for vector embeddings
+- Plan for text chunking and preprocessing
+- Consider integration points for semantic search
 
-- Response caching for frequent requests
-- Pagination for large result sets
-- Lazy loading of content
-- XML processing optimization
+## 9. Development Approach
 
-## 10. Metrics and Monitoring
-
-### 10.1 Performance Metrics
-
-- API response times
-- Page load times
-- Search performance
-- XML processing times
-
-### 10.2 Usage Metrics
-
-- Most viewed authors and works
-- Search term frequency
-- Import success rate
-- User preference patterns
-
-## 11. Future Extensions
-
-### 11.1 Advanced Text Analysis
-
-- Named entity recognition
-- Topic modeling
-- Cross-reference detection
-- Parallel text alignment
-
-### 11.2 Collaboration Features
-
-- User accounts and authentication
-- Shared annotations
-- Export capabilities
-- Reading groups
-
-### 11.3 Integration Possibilities
-
-- Integration with other classical text repositories
-- Citation linking with standard reference systems
-- Bibliography management
-- Academic research tools
+- Modular service-based architecture
+- Separation of data access, business logic, and presentation
+- Extensive use of HTMX for dynamic UI without complex JavaScript
+- Mobile-responsive design with Tailwind CSS
+- Comprehensive logging for operations affecting the catalog
+- Unit tests for core services and functionality
