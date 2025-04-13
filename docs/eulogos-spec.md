@@ -1,8 +1,8 @@
-# First1KGreek Browser System Specification (Revised)
+# Eulogos Browser System Specification (Revised)
 
 ## 1. System Overview
 
-First1KGreek Browser is a web application for accessing, viewing, and managing ancient Greek texts from the First 1000 Years Project. The system provides scholars, students, and enthusiasts with tools to browse texts by author, read works with specialized viewing options, and manage their collection through archiving and filtering capabilities.
+Eulogos Browser is a web application for accessing, viewing, and managing ancient Greek texts from the First 1000 Years Project. The system provides scholars, students, and enthusiasts with tools to browse texts by author, read works with specialized viewing options, and manage their collection through archiving and filtering capabilities.
 
 ### 1.1 Core Assets
 

@@ -1,0 +1,106 @@
+# Eulogos
+
+A web application for accessing, searching, and studying ancient Greek texts from the First 1000 Years Project.
+
+## Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/eulogos.git
+cd eulogos
+
+# Create a virtual environment (optional but recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+## Catalog Validation
+
+To validate the catalog index against the data files, use the `validate_catalog.py` script:
+
+```bash
+# Run the validation with default paths
+python app/scripts/validate_catalog.py
+
+# Specify custom paths
+python app/scripts/validate_catalog.py --catalog /path/to/catalog_index.json --authors /path/to/author_index.json --data /path/to/data
+
+# Save the validation results to a file
+python app/scripts/validate_catalog.py --output validation_results.json
+
+# Only show missing files and authors
+python app/scripts/validate_catalog.py --missing-only
+
+# Set the log level
+python app/scripts/validate_catalog.py --log-level debug
+```
+
+### Validation Options
+
+- `--catalog`, `-c`: Path to catalog_index.json file (default: catalog_index.json)
+- `--authors`, `-a`: Path to author_index.json file (default: author_index.json)
+- `--data`, `-d`: Path to data directory containing XML files (default: data)
+- `--output`, `-o`: Output file for validation results in JSON format
+- `--log-level`, `-l`: Set the log level (choices: debug, info, warning, error, critical; default: info)
+- `--missing-only`, `-m`: Only report missing files and authors
+
+## Creating a Unified Catalog
+
+To merge the author index and catalog index into a unified catalog file, use the `merge_catalog.py` script:
+
+```bash
+# Create a unified catalog with default paths
+python app/scripts/merge_catalog.py
+
+# Specify custom paths
+python app/scripts/merge_catalog.py --catalog /path/to/catalog_index.json --authors /path/to/author_index.json --output /path/to/unified_catalog.json
+
+# Format the output JSON with indentation for readability
+python app/scripts/merge_catalog.py --pretty
+```
+
+### Merge Options
+
+- `--catalog`, `-c`: Path to catalog_index.json file (default: catalog_index.json)
+- `--authors`, `-a`: Path to author_index.json file (default: author_index.json)
+- `--output`, `-o`: Output file for the unified catalog (default: unified_catalog.json)
+- `--log-level`, `-l`: Set the log level (choices: debug, info, warning, error, critical; default: info)
+- `--pretty`, `-p`: Format the output JSON with indentation for readability
+
+## Development
+
+### Running the Application (Not Yet Implemented)
+
+```bash
+# Run the development server
+python -m uvicorn app.main:app --reload
+```
+
+### Project Structure
+
+```
+eulogos/
+├── app/
+│   ├── models/          # Pydantic models
+│   ├── routers/         # FastAPI routers
+│   ├── scripts/         # Utility scripts
+│   ├── services/        # Business logic
+│   ├── static/          # Static files
+│   ├── templates/       # Jinja2 templates
+│   ├── utils/           # Utility functions
+│   └── main.py          # FastAPI application
+├── data/                # Data files
+├── tests/               # Tests
+├── .flake8             # Flake8 configuration
+├── .pydocstyle         # Pydocstyle configuration
+├── pyproject.toml      # Black configuration
+├── requirements.txt    # Dependencies
+└── README.md           # This file
+```
+
+## License
+
+See the LICENSE file for details. 
