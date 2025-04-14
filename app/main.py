@@ -1,68 +1,34 @@
-"""Main application module for Eulogos."""
+"""Main FastAPI application module for Eulogos."""
 
 import os
-from pathlib import Path
-from typing import Optional
-
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
-from app.routers.admin import router as admin_router
-
-# Configure logging
-log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
-logger.add("logs/eulogos.log", level=log_level, rotation="10 MB")
-
-# Create app
+# Set up the application
 app = FastAPI(
     title="Eulogos",
-    description="Web application for accessing ancient Greek texts",
+    description="A web application for exploring ancient Greek texts",
     version="0.1.0",
 )
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Set up static files and templates
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "app/static")
+templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "app/templates")
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+templates = Jinja2Templates(directory=templates_dir)
 
-# Configure templates
-templates = Jinja2Templates(directory="app/templates")
+# Configure logging
+logger.add("logs/eulogos.log", rotation="10 MB", level="INFO")
 
-# Include routers
-app.include_router(admin_router)
-
-
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    """Home page route.
-
-    Args:
-        request: The request object
-        
-    Returns:
-        HTML response
-    """
-    return templates.TemplateResponse(
-        "index.html", {"request": request, "title": "Eulogos"}
-    )
-
+@app.get("/")
+async def root():
+    """Return the root endpoint response."""
+    return {"message": "Welcome to Eulogos - Ancient Greek Texts Explorer"}
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint.
-    
-    Returns:
-        Status message
-    """
-    return {"status": "ok"} 
+    """Return health check information."""
+    return {"status": "ok", "version": "0.1.0"} 
