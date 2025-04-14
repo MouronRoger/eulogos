@@ -22,7 +22,7 @@ class CatalogService:
             data_dir: Path to the data directory containing the XML files
         """
         self.catalog_path = Path(catalog_path) if catalog_path else Path("catalog_index.json")
-        self.author_path = Path(author_path) if author_path else Path("author_index.json")
+        self.author_path = Path(author_path) if author_path else None
         self.data_dir = Path(data_dir) if data_dir else Path("data")
         
         # Primary data
@@ -52,6 +52,12 @@ class CatalogService:
             with open(self.catalog_path, "r", encoding="utf-8") as f:
                 self._catalog_data = json.load(f)
                 logger.info(f"Loaded catalog from {self.catalog_path}")
+                
+                # If this is an integrated catalog with authors included
+                if "authors" in self._catalog_data and not self.author_path:
+                    self._author_data = self._catalog_data.get("authors", {})
+                    logger.info(f"Extracted {len(self._author_data)} authors from integrated catalog")
+                
                 return self._catalog_data
         except Exception as e:
             logger.error(f"Error loading catalog: {e}")
@@ -92,6 +98,17 @@ class CatalogService:
         Returns:
             The author data as a dictionary
         """
+        # If we already have author data from the integrated catalog
+        if self._author_data is not None:
+            return self._author_data
+            
+        # If no author path specified, try to extract from catalog
+        if not self.author_path:
+            if self._catalog_data is None:
+                self.load_catalog()
+            return self._author_data or {}
+            
+        # Load from separate author file if path exists
         if not self.author_path.exists():
             logger.error(f"Author file not found: {self.author_path}")
             raise FileNotFoundError(f"Author file not found: {self.author_path}")
@@ -117,40 +134,79 @@ class CatalogService:
         if self._author_data is None:
             self.load_authors()
         
-        # Extract statistics
+        # Extract statistics from catalog data
         stats = {
-            "nodeCount": self._catalog_data.get("nodeCount", 0),
-            "greekWords": self._catalog_data.get("greekWords", 0),
-            "latinWords": self._catalog_data.get("latinWords", 0),
-            "arabicwords": self._catalog_data.get("arabicwords", 0),
+            "nodeCount": self._catalog_data.get("statistics", {}).get("textCount", 0),
+            "greekWords": self._catalog_data.get("statistics", {}).get("greekWords", 0),
+            "latinWords": self._catalog_data.get("statistics", {}).get("latinWords", 0),
+            "arabicwords": self._catalog_data.get("statistics", {}).get("arabicwords", 0),
             "authorCount": len(self._author_data),
-            "textCount": len(self._catalog_data.get("catalog", [])),
+            "textCount": self._catalog_data.get("statistics", {}).get("textCount", 0),
         }
         
         # Process catalog entries and link to authors
         catalog_entries = []
-        for item in self._catalog_data.get("catalog", []):
-            # Extract textgroup from URN
-            textgroup = None
-            try:
-                urn_parts = item["urn"].split(":")
-                if len(urn_parts) >= 4:
-                    identifier = urn_parts[3].split(":")[0]
-                    id_parts = identifier.split(".")
-                    if len(id_parts) >= 1:
-                        textgroup = id_parts[0]
-            except Exception:
-                pass
-            
-            # Add author_id reference if it exists in authors
-            catalog_entry = item.copy()
-            if textgroup and textgroup in self._author_data:
-                catalog_entry["author_id"] = textgroup
-            
-            catalog_entries.append(Text(**catalog_entry))
         
-        # Convert authors to model
-        authors = {author_id: Author(**data) for author_id, data in self._author_data.items()}
+        # Process the nested structure of authors->works in integrated_catalog.json
+        for author_id, author_data in self._author_data.items():
+            # Get works for this author from the nested structure
+            works_data = author_data.get("works", {})
+            
+            for work_id, work_data in works_data.items():
+                # Extract base work info
+                work_name = work_data.get("title", "Unknown Work")
+                work_urn_base = f"urn:cts:greekLit:{author_id}.{work_id}"
+                
+                # Process editions
+                editions = work_data.get("editions", {})
+                for edition_id, edition_data in editions.items():
+                    edition_urn = f"{work_urn_base}.{edition_id}"
+                    language = edition_data.get("language", "grc")
+                    
+                    # Create text entry for this edition
+                    text_entry = {
+                        "urn": edition_urn,
+                        "group_name": author_data.get("name", "Unknown Author"),
+                        "work_name": work_name,
+                        "language": language,
+                        "wordcount": edition_data.get("wordcount", 0),
+                        "author_id": author_id,
+                        "archived": False,
+                        "favorite": False
+                    }
+                    
+                    catalog_entries.append(Text(**text_entry))
+                
+                # Process translations
+                translations = work_data.get("translations", {})
+                for translation_id, translation_data in translations.items():
+                    translation_urn = f"{work_urn_base}.{translation_id}"
+                    language = translation_data.get("language", "eng")
+                    
+                    # Create text entry for this translation
+                    text_entry = {
+                        "urn": translation_urn,
+                        "group_name": author_data.get("name", "Unknown Author"),
+                        "work_name": f"{work_name} ({language} translation)",
+                        "language": language,
+                        "wordcount": translation_data.get("wordcount", 0),
+                        "author_id": author_id,
+                        "archived": False,
+                        "favorite": False
+                    }
+                    
+                    catalog_entries.append(Text(**text_entry))
+        
+        # Convert authors to model objects and set the id field
+        authors = {}
+        for author_id, data in self._author_data.items():
+            author_data = {
+                "name": data.get("name", "Unknown"),
+                "century": data.get("century", 0),
+                "type": data.get("type", "Unknown"),
+                "id": author_id
+            }
+            authors[author_id] = Author(**author_data)
         
         # Create unified catalog
         self._unified_catalog = UnifiedCatalog(

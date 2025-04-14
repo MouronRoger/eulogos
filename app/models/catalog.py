@@ -10,6 +10,7 @@ class Author(BaseModel):
     name: str
     century: int  # Negative for BCE, positive for CE
     type: str
+    id: Optional[str] = None  # Author ID (typically the textgroup)
 
 
 class Text(BaseModel):

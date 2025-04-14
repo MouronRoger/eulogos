@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from loguru import logger
 
-from app.routers import texts, browse
+from app.routers import texts, browse, reader
 
 # Set up the application
 app = FastAPI(
@@ -26,6 +26,7 @@ templates = Jinja2Templates(directory=templates_dir)
 # Include routers
 app.include_router(texts.router, prefix="/api")
 app.include_router(browse.router, prefix="/api")
+app.include_router(reader.router)
 
 # Configure logging
 logger.add("logs/eulogos.log", rotation="10 MB", level="INFO")

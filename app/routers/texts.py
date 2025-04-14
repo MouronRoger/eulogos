@@ -14,7 +14,6 @@ def get_catalog_service():
     """
     service = CatalogService(
         catalog_path="integrated_catalog.json",
-        author_path="author_index.json",
         data_dir="data"
     )
     service.create_unified_catalog()
