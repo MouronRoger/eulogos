@@ -22,6 +22,8 @@ class Text(BaseModel):
     wordcount: int
     scaife: Optional[str] = None
     author_id: Optional[str] = None
+    archived: bool = False  # Flag for archived texts
+    favorite: bool = False  # Flag for favorite texts
     
     # Derived fields (not stored in JSON)
     namespace: Optional[str] = Field(None, exclude=True)
