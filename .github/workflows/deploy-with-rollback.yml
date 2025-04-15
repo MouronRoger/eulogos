@@ -43,6 +43,7 @@ jobs:
       commit_sha: ${{ steps.get-info.outputs.commit_sha }}
       branch_name: ${{ steps.get-info.outputs.branch_name }}
       image_tag: ${{ steps.get-info.outputs.image_tag }}
+      docker_image: ${{ steps.set-repo-owner.outputs.docker_image }}
 
     steps:
       - name: Checkout repository
@@ -55,6 +56,7 @@ jobs:
         run: |
           REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "repo_owner_lower=${REPO_OWNER_LOWER}" >> $GITHUB_OUTPUT
+          echo "docker_image=ghcr.io/${REPO_OWNER_LOWER}/eulogos" >> $GITHUB_OUTPUT
           echo "DOCKER_IMAGE=ghcr.io/${REPO_OWNER_LOWER}/eulogos" >> $GITHUB_ENV
 
       - name: Get deployment info
@@ -146,8 +148,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.DOCKER_IMAGE }}:${{ needs.prepare.outputs.image_tag }}
-            ${{ env.DOCKER_IMAGE }}:latest
+            ${{ needs.prepare.outputs.docker_image }}:${{ needs.prepare.outputs.image_tag }}
+            ${{ needs.prepare.outputs.docker_image }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -243,7 +245,7 @@ jobs:
             fi
 
             # Deploy using the image tagged with this deployment ID
-            DEPLOY_IMAGE="${{ env.DOCKER_IMAGE }}:${DEPLOY_ID}"
+            DEPLOY_IMAGE="${{ needs.prepare.outputs.docker_image }}:${DEPLOY_ID}"
 
             # Log the rollback for audit purposes
             echo "ROLLBACK: Deploying ${DEPLOY_IMAGE} to ${{ needs.prepare.outputs.environment }}"
@@ -256,7 +258,7 @@ jobs:
             echo "kubectl set image deployment/${{ env.APP_NAME }} ${{ env.APP_NAME }}=${DEPLOY_IMAGE} -n ${{ needs.prepare.outputs.environment }}"
           else
             # Normal deployment
-            DEPLOY_IMAGE="${{ env.DOCKER_IMAGE }}:${{ needs.prepare.outputs.image_tag }}"
+            DEPLOY_IMAGE="${{ needs.prepare.outputs.docker_image }}:${{ needs.prepare.outputs.image_tag }}"
 
             echo "Performing regular deployment: ${DEPLOY_IMAGE}"
             echo "Deployment to: ${{ needs.prepare.outputs.environment }}"
