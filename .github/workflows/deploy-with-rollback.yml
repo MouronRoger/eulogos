@@ -30,7 +30,8 @@ on:
 env:
   APP_NAME: eulogos
   DOCKER_REGISTRY: ghcr.io
-  DOCKER_IMAGE: ghcr.io/${{ github.repository_owner }}/eulogos
+  # We'll use this as a base, but will convert to lowercase in the workflow
+  DOCKER_IMAGE_BASE: ghcr.io/${{ github.repository_owner }}/eulogos
 
 jobs:
   prepare:
@@ -49,6 +50,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set lowercase repository owner
+        id: set-repo-owner
+        run: |
+          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "repo_owner_lower=${REPO_OWNER_LOWER}" >> $GITHUB_OUTPUT
+          echo "DOCKER_IMAGE=ghcr.io/${REPO_OWNER_LOWER}/eulogos" >> $GITHUB_ENV
+
       - name: Get deployment info
         id: get-info
         run: |
@@ -56,12 +64,15 @@ jobs:
           COMMIT_SHA="${{ github.sha }}"
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
 
+          # Convert branch name to lowercase for Docker compatibility
+          BRANCH_NAME_LOWER=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
+
           # Create a unique image tag based on branch and commit
           # This allows tracking deployment by both branch and specific commit
           # Format: branch-name_short-sha_timestamp
           TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
           SHORT_SHA=$(echo $COMMIT_SHA | cut -c1-7)
-          IMAGE_TAG="${BRANCH_NAME}_${SHORT_SHA}_${TIMESTAMP}"
+          IMAGE_TAG="${BRANCH_NAME_LOWER}_${SHORT_SHA}_${TIMESTAMP}"
 
           # Replace slashes in branch name with dashes for Docker tag compatibility
           IMAGE_TAG=$(echo "$IMAGE_TAG" | tr '/' '-')
