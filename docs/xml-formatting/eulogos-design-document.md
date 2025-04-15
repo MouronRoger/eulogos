@@ -88,6 +88,8 @@ class URN(BaseModel):
 - `parse()`: Extracts components from the URN string
 - `up_to(segment)`: Returns the URN truncated at a specific segment
 - `replace(**kwargs)`: Creates a new URN with replaced components
+- `get_file_path()`: Gets file path from URN
+- `get_adjacent_references()`: Gets previous/next references
 
 ### 3.2 XMLProcessorService
 
