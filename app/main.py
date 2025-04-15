@@ -1,13 +1,14 @@
 """Main FastAPI application module for Eulogos."""
 
 import os
+
 from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
 from loguru import logger
 
-from app.routers import texts, browse, reader
+from app.routers import browse, reader, texts
 
 # Set up the application
 app = FastAPI(
@@ -31,24 +32,21 @@ app.include_router(reader.router)
 # Configure logging
 logger.add("logs/eulogos.log", rotation="10 MB", level="INFO")
 
-@app.get("/")
-async def root():
-    """Return the root endpoint response."""
-    return {"message": "Welcome to Eulogos - Ancient Greek Texts Explorer"}
+
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    """Render the browse page.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        HTMLResponse with rendered template
+    """
+    return templates.TemplateResponse("browse.html", {"request": request})
+
 
 @app.get("/health")
 async def health_check():
     """Return health check information."""
     return {"status": "ok", "version": "0.1.0"}
-
-@app.get("/browse", response_class=HTMLResponse)
-async def browse_page(request: Request):
-    """Render the browse page.
-    
-    Args:
-        request: FastAPI request object
-        
-    Returns:
-        HTMLResponse with rendered template
-    """
-    return templates.TemplateResponse("browse.html", {"request": request}) 
