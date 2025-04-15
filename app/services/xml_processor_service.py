@@ -283,11 +283,13 @@ class XMLProcessorService:
                 tokens = self.tokenize_text(text_node)
                 for token in tokens:
                     if token["type"] == "word":
+                        token_text = token["text"]
+                        token_index = token["index"]
                         html.append(
                             '<span class="token" '
-                            f'data-token="{token["text"]}" '
-                            f'data-token-index="{token["index"]}">'
-                            f'{token["text"]}</span>'
+                            f'data-token="{token_text}" '
+                            f'data-token-index="{token_index}">'
+                            f"{token_text}</span>"
                         )
                     else:
                         html.append(f'<span class="punct">{token["text"]}</span>')
