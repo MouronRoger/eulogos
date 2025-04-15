@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
-from app.routers import browse, reader, texts
+from app.routers import browse, export, reader, texts
 
 # Set up the application
 app = FastAPI(
@@ -28,6 +28,7 @@ templates = Jinja2Templates(directory=templates_dir)
 app.include_router(texts.router, prefix="/api")
 app.include_router(browse.router, prefix="/api")
 app.include_router(reader.router)
+app.include_router(export.router)
 
 # Configure logging
 logger.add("logs/eulogos.log", rotation="10 MB", level="INFO")

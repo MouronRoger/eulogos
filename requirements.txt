@@ -10,4 +10,5 @@ loguru>=0.7.0
 black>=23.3.0
 flake8>=6.0.0
 pydocstyle>=6.3.0
-pre-commit>=3.3.2 
+pre-commit>=3.3.2
+markdown>=3.4.3

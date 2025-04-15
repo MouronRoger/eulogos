@@ -51,6 +51,31 @@
                         >
                             {{ 'Unfavorite' if text.favorite else 'Favorite' }}
                         </button>
+
+                        <!-- Export dropdown -->
+                        <div class="relative inline-block text-left" x-data="{ open: false }">
+                            <button @click="open = !open" class="px-2 py-1 bg-blue-600 text-white rounded text-sm flex items-center">
+                                Export
+                                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div
+                                x-show="open"
+                                @click.away="open = false"
+                                class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10"
+                            >
+                                <div class="py-1" role="menu">
+                                    <a href="/api/export/{{ text.urn }}?format=pdf" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">PDF</a>
+                                    <a href="/api/export/{{ text.urn }}?format=epub" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">ePub</a>
+                                    <a href="/api/export/{{ text.urn }}?format=mobi" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">MOBI</a>
+                                    <a href="/api/export/{{ text.urn }}?format=markdown" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">Markdown</a>
+                                    <a href="/api/export/{{ text.urn }}?format=docx" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">DOCX</a>
+                                    <a href="/api/export/{{ text.urn }}?format=latex" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">LaTeX</a>
+                                    <a href="/api/export/{{ text.urn }}?format=html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">HTML</a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Text content -->
