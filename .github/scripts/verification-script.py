@@ -14,6 +14,12 @@ import time
 import urllib.request
 from typing import Dict, List, Tuple
 
+# Make imports work from any location/branch by using the script's directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+from deployment_tracker import DeploymentTracker  # noqa: E402
+
 
 def check_health(url: str, timeout: int = 10) -> Tuple[bool, Dict]:
     """Check the health endpoint of the deployed application.
@@ -230,10 +236,6 @@ def main():
     parser.add_argument("--verified-by", "-u", default="verification-script", help="User who verified the deployment")
 
     args = parser.parse_args()
-
-    # Ensure deployment_tracker is in the Python path and import it
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from deployment_tracker import DeploymentTracker
 
     # Run the verification
     success = run_verification(args.environment, args.deployment_id)
