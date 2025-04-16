@@ -9,13 +9,17 @@ it's functioning correctly before marking it as verified.
 import argparse
 import json
 import logging
+import os
 import sys
 import time
 import urllib.request
 from typing import Dict, List, Tuple
 
 # Import from the same directory
-from deployment_tracker import DeploymentTracker
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+from deployment_tracker import DeploymentTracker  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
