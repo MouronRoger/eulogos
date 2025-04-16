@@ -153,19 +153,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Store deployment metadata
+      - name: Create deployment metadata
+        run: |
+          echo '{
+            "id": "${{ needs.prepare.outputs.image_tag }}",
+            "commit_sha": "${{ needs.prepare.outputs.commit_sha }}",
+            "branch_name": "${{ needs.prepare.outputs.branch_name }}",
+            "timestamp": "${{ github.event.repository.updated_at }}",
+            "triggered_by": "${{ github.actor }}",
+            "environment": "${{ needs.prepare.outputs.environment }}"
+          }' > deployment-metadata.json
+          echo "Created deployment metadata file with contents:"
+          cat deployment-metadata.json
+
+      - name: Upload deployment metadata
         uses: actions/upload-artifact@v4
         with:
           name: deployment-metadata
-          path: |
-            echo '{
-              "id": "${{ needs.prepare.outputs.image_tag }}",
-              "commit_sha": "${{ needs.prepare.outputs.commit_sha }}",
-              "branch_name": "${{ needs.prepare.outputs.branch_name }}",
-              "timestamp": "${{ github.event.repository.updated_at }}",
-              "triggered_by": "${{ github.actor }}",
-              "environment": "${{ needs.prepare.outputs.environment }}"
-            }' > deployment-metadata.json
+          path: deployment-metadata.json
           retention-days: 90
 
   deploy:
