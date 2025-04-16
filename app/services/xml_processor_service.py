@@ -5,7 +5,10 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypeVar
 
+from loguru import logger
+
 from app.models.urn import URN
+from app.services.catalog_service import CatalogService
 
 # Define Element type for type annotations
 # This allows using Element type in annotations without needing the internal _Element
@@ -15,24 +18,55 @@ Element = TypeVar("Element", bound=ET.Element)
 class XMLProcessorService:
     """Service for processing XML files with reference handling."""
 
-    def __init__(self, data_path: str = "data"):
+    def __init__(self, data_path: str = "data", catalog_service: Optional[CatalogService] = None):
         """Initialize the XML processor service.
 
         Args:
             data_path: Path to the data directory
+            catalog_service: Optional catalog service for path resolution
         """
         self.data_path = Path(data_path)
+        self.catalog_service = catalog_service
 
     def resolve_urn_to_file_path(self, urn_obj: URN) -> Path:
-        """Resolve URN to file path.
+        """Resolve URN to file path using catalog as source of truth.
 
         Args:
             urn_obj: URN object
 
         Returns:
             Path object for the XML file
+
+        Raises:
+            FileNotFoundError: If the catalog doesn't contain the URN or path is invalid
         """
-        return urn_obj.get_file_path(self.data_path)
+        # If catalog service is provided, use it as source of truth
+        if self.catalog_service:
+            # Get text by URN
+            text = self.catalog_service.get_text_by_urn(urn_obj.value)
+            if text and hasattr(text, "path") and text.path:
+                # Return absolute path
+                return Path(self.data_path) / text.path
+
+            # Fall back to checking if there's a path directly from the catalog service
+            path = self.catalog_service.get_path_by_urn(urn_obj.value)
+            if path:
+                return Path(self.data_path) / path
+
+        # If no catalog service or text not found, fall back to URN-based path
+        # NOTE: This fallback keeps existing behavior but logs a warning
+        logger.warning(f"Resolving URN {urn_obj.value} without catalog. This bypasses the single source of truth!")
+
+        # We're going to bypass urn_obj.get_file_path() because it might include the namespace in the path
+        # Instead, we'll construct the path directly
+        if not urn_obj.textgroup or not urn_obj.work or not urn_obj.version:
+            raise ValueError(f"URN {urn_obj.value} missing required components for path resolution")
+
+        # Construct the path without namespace
+        return (
+            Path(self.data_path)
+            / f"{urn_obj.textgroup}/{urn_obj.work}/{urn_obj.textgroup}.{urn_obj.work}.{urn_obj.version}.xml"
+        )
 
     def load_xml(self, urn_obj: URN) -> Element:
         """Load XML file based on URN.
