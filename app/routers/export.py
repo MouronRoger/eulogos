@@ -15,7 +15,7 @@ router = APIRouter(
 )
 
 
-@router.get("/{format}/{urn}")
+@router.get("/{format}/{urn}", response_model=None)
 async def export_text(
     format: str,
     urn: str,
