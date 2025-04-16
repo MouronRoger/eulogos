@@ -110,7 +110,7 @@ async def read_text(
         )
 
 
-@router.get("/api/references/{urn}")
+@router.get("/api/references/{urn}", response_model=None)
 async def get_references(urn: str, xml_processor: XMLProcessorService = Depends(get_xml_processor)):
     """Get references for a text.
 
