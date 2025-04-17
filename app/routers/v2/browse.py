@@ -62,7 +62,11 @@ async def browse_texts(
 
         if era in era_ranges:
             start_century, end_century = era_ranges[era]
-            authors = [author for author in authors if start_century <= author.century <= end_century]
+            authors = [
+                author
+                for author in authors
+                if author.century is not None and start_century <= author.century <= end_century
+            ]
 
     # Process authors to include their works
     result_authors = []
@@ -136,7 +140,11 @@ async def browse_texts_json(
 
         if era in era_ranges:
             start_century, end_century = era_ranges[era]
-            authors = [author for author in authors if start_century <= author.century <= end_century]
+            authors = [
+                author
+                for author in authors
+                if author.century is not None and start_century <= author.century <= end_century
+            ]
 
     # Process authors to include their works
     result_authors = []

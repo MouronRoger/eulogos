@@ -274,6 +274,17 @@ class EnhancedCatalogService:
 
         return authors
 
+    def get_all_authors(self, include_archived: bool = False) -> List[Author]:
+        """Get all authors.
+
+        Args:
+            include_archived: Whether to include archived authors
+
+        Returns:
+            List of Author objects
+        """
+        return self.get_authors(include_archived=include_archived)
+
     def get_texts_by_author(self, author_id: str, include_archived: bool = False) -> List[Any]:
         """Get all texts by an author.
 

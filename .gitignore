@@ -41,8 +41,13 @@ logs/
 # Project specific
 unified_catalog.json
 validation_results.json
+# Large catalog files
+integrated_catalog.json
+integrated_catalog.json.bak
+new_integrated_catalog.json
+*.bak
 
-.directory 
+.directory
 .DS_Store
 *.pickle
 manifest.txt

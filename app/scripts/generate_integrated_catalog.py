@@ -258,15 +258,23 @@ def generate_integrated_catalog(catalog_data: Dict, authors_data: Dict, lenient:
 
     # Create authors dictionary
     author_dict = {}
+    # Check if authors_data has an "authors" key or if the author IDs are at the root level
     if "authors" in authors_data:
-        for author_id, author_data in authors_data["authors"].items():
-            author_dict[author_id] = Author(
-                id=author_id,
-                name=author_data.get("name", "Unknown"),
-                century=author_data.get("century"),
-                type=author_data.get("type", "Author"),
-                works={},
-            )
+        # Structure is {"authors": {"tlg0001": {...}, ...}}
+        author_entries = authors_data["authors"]
+    else:
+        # Structure is {"tlg0001": {...}, ...}
+        author_entries = authors_data
+
+    # Process author entries
+    for author_id, author_data in author_entries.items():
+        author_dict[author_id] = Author(
+            id=author_id,
+            name=author_data.get("name", "Unknown"),
+            century=author_data.get("century"),
+            type=author_data.get("type", "Author"),
+            works={},
+        )
 
     # Process catalog entries
     text_entries = []

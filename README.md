@@ -93,14 +93,44 @@ eulogos/
 │   ├── utils/           # Utility functions
 │   └── main.py          # FastAPI application
 ├── data/                # Data files
+├── docs/                # Documentation
+│   ├── author_metadata_management.md  # Author metadata guide
+│   └── catalog_maintenance.md         # Catalog maintenance guide
 ├── tests/               # Tests
 ├── .flake8             # Flake8 configuration
 ├── .pydocstyle         # Pydocstyle configuration
 ├── pyproject.toml      # Black configuration
 ├── requirements.txt    # Dependencies
+├── regenerate_integrated_catalog.sh  # Script to regenerate the integrated catalog
 └── README.md           # This file
 ```
 
+## Catalog System
+
+Eulogos maintains three important catalog files:
+
+1. **catalog_index.json**: Contains information about texts, including URNs, languages, and word counts
+2. **author_index.json**: Contains author metadata (name, century, type)
+3. **integrated_catalog.json**: The comprehensive catalog that combines both sources
+
+### Regenerating the Integrated Catalog
+
+To regenerate the integrated catalog (combining author metadata with text data):
+
+```bash
+./regenerate_integrated_catalog.sh
+```
+
+This script:
+- Backs up the existing integrated catalog
+- Combines `catalog_index.json` and `author_index.json`
+- Preserves author metadata while including all texts
+- Outputs to `integrated_catalog.json`
+
+For more detailed information about catalog maintenance, see:
+- [Catalog Maintenance Guide](docs/catalog_maintenance.md)
+- [Author Metadata Management](docs/author_metadata_management.md)
+
 ## License
 
-See the LICENSE file for details. 
+See the LICENSE file for details.

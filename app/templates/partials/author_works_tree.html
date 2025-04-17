@@ -92,7 +92,7 @@
         </button>
         <h3 class="text-md font-medium flex-grow">
           {{ author.name }}
-          <span class="text-sm text-gray-500">{{ (author.century|abs ~ ' BCE') if author.century < 0 else (author.century ~ ' CE') }}</span>
+          <span class="text-sm text-gray-500">{% if author.century is none %}Unknown period{% elif author.century < 0 %}{{ author.century|abs }} BCE{% else %}{{ author.century }} CE{% endif %}</span>
         </h3>
 
         <!-- Author actions -->

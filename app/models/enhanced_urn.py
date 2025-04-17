@@ -24,8 +24,8 @@ class EnhancedURN(BaseModel):
     @field_validator("value")
     def validate_urn(cls, v: str) -> str:
         """Validate the URN string format."""
-        if not v.startswith("urn:cts:"):
-            raise ValueError(f"Invalid CTS URN format: {v}")
+        if not (v.startswith("urn:cts:") or v.startswith("urn:nbn:de:")):
+            raise ValueError(f"Invalid URN format: {v}. Must start with 'urn:cts:' or 'urn:nbn:de:'")
         return v
 
     def __init__(self, **data: Any) -> None:
@@ -44,26 +44,39 @@ class EnhancedURN(BaseModel):
         urn = self.value.split("#")[0]
         parts = urn.split(":")
 
-        if len(parts) >= 3:
-            object.__setattr__(self, "namespace", parts[2])
+        # Handle different URN formats
+        if self.value.startswith("urn:cts:"):
+            if len(parts) >= 3:
+                object.__setattr__(self, "namespace", parts[2])
 
-        if len(parts) >= 4:
-            id_part = parts[3].split(":", 1)
-            identifier = id_part[0]
+            if len(parts) >= 4:
+                id_part = parts[3].split(":", 1)
+                identifier = id_part[0]
 
-            if len(id_part) > 1:
-                object.__setattr__(self, "reference", id_part[1])
+                if len(id_part) > 1:
+                    object.__setattr__(self, "reference", id_part[1])
 
-            id_parts = identifier.split(".")
-            if len(id_parts) >= 1:
-                object.__setattr__(self, "textgroup", id_parts[0])
-            if len(id_parts) >= 2:
-                object.__setattr__(self, "work", id_parts[1])
-            if len(id_parts) >= 3:
-                object.__setattr__(self, "version", id_parts[2])
+                id_parts = identifier.split(".")
+                if len(id_parts) >= 1:
+                    object.__setattr__(self, "textgroup", id_parts[0])
+                if len(id_parts) >= 2:
+                    object.__setattr__(self, "work", id_parts[1])
+                if len(id_parts) >= 3:
+                    object.__setattr__(self, "version", id_parts[2])
 
-        if len(parts) >= 5:
-            object.__setattr__(self, "reference", parts[4])
+            if len(parts) >= 5:
+                object.__setattr__(self, "reference", parts[4])
+
+        elif self.value.startswith("urn:nbn:de:"):
+            # Format: urn:nbn:de:tlg0541.tlg042.1st1K-grc1
+            if len(parts) >= 4:
+                id_parts = parts[3].split(".")
+                if len(id_parts) >= 1:
+                    object.__setattr__(self, "textgroup", id_parts[0])
+                if len(id_parts) >= 2:
+                    object.__setattr__(self, "work", id_parts[1])
+                if len(id_parts) >= 3:
+                    object.__setattr__(self, "version", id_parts[2])
 
     def get_id_components(self) -> Dict[str, Optional[str]]:
         """Get the ID components of the URN."""
