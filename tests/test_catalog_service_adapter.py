@@ -20,10 +20,14 @@ def test_init_with_warning():
         # Create adapter
         adapter = CatalogServiceAdapter()  # noqa: F841 - Used for test setup
 
-        # Check warning was raised
-        assert len(w) == 1
-        assert issubclass(w[0].category, DeprecationWarning)
-        assert "deprecated" in str(w[0].message)
+        # Check for our specific warning
+        deprecation_warnings = [
+            msg
+            for msg in w
+            if issubclass(msg.category, DeprecationWarning)
+            and "CatalogServiceAdapter is deprecated" in str(msg.message)
+        ]
+        assert len(deprecation_warnings) >= 1
 
 
 def test_init_with_enhanced_service():
@@ -43,15 +47,21 @@ def test_init_with_settings():
     settings = MagicMock()
 
     with warnings.catch_warnings(), patch(
-        "app.services.catalog_service_adapter.EnhancedCatalogService"
-    ) as mock_service:
+        "app.services.enhanced_catalog_service.EnhancedCatalogService"
+    ) as mock_service_class:
+        # Setup the mock
+        mock_service_instance = MagicMock()
+        mock_service_class.return_value = mock_service_instance
+
         # Ignore deprecation warning
         warnings.simplefilter("ignore")
         adapter = CatalogServiceAdapter(settings=settings)
 
         # Check EnhancedCatalogService was created with settings
-        mock_service.assert_called_once_with(settings=settings)
-        assert isinstance(adapter, CatalogServiceAdapter)
+        mock_service_class.assert_called_once()
+        _, kwargs = mock_service_class.call_args
+        assert kwargs["settings"] is settings
+        assert adapter.enhanced_service is mock_service_instance
 
 
 def test_load_catalog():

@@ -1,8 +1,8 @@
 """Pydantic models for catalog data."""
 
-from typing import Dict, List, Optional
+from typing import ClassVar, Dict, List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Author(BaseModel):
@@ -16,6 +16,8 @@ class Author(BaseModel):
 
 class Text(BaseModel):
     """Text model with author reference."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
     urn: str
     group_name: str
@@ -34,10 +36,12 @@ class Text(BaseModel):
     work_id: Optional[str] = Field(None, exclude=True)
     version: Optional[str] = Field(None, exclude=True)
 
-    @validator("urn")
-    def parse_urn(cls, v, values):
+    @field_validator("urn")
+    @classmethod
+    def parse_urn(cls, v, info):
         """Extract URN components and generate default path if needed."""
         try:
+            values = info.data
             parts = v.split(":")
             if len(parts) >= 4:
                 namespace = parts[2]
@@ -49,6 +53,7 @@ class Text(BaseModel):
                     work_id = id_parts[1]
                     version = id_parts[2]
 
+                    # Set values in the model
                     values["namespace"] = namespace
                     values["textgroup"] = textgroup
                     values["work_id"] = work_id

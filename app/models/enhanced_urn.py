@@ -4,13 +4,15 @@ This module provides functionality for handling and validating URNs in the syste
 """
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, ClassVar, Dict, Optional
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class EnhancedURN(BaseModel):
     """Enhanced model for Canonical Text Services URNs."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True)
 
     value: str
     namespace: Optional[str] = None
@@ -19,7 +21,7 @@ class EnhancedURN(BaseModel):
     version: Optional[str] = None
     reference: Optional[str] = None
 
-    @validator("value")
+    @field_validator("value")
     def validate_urn(cls, v: str) -> str:
         """Validate the URN string format."""
         if not v.startswith("urn:cts:"):
@@ -29,33 +31,39 @@ class EnhancedURN(BaseModel):
     def __init__(self, **data: Any) -> None:
         """Initialize and parse the URN components."""
         super().__init__(**data)
-        self.parse()
+        # Need to modify protected fields after init due to frozen model
+        object.__setattr__(self, "namespace", None)
+        object.__setattr__(self, "textgroup", None)
+        object.__setattr__(self, "work", None)
+        object.__setattr__(self, "version", None)
+        object.__setattr__(self, "reference", None)
+        self._parse()
 
-    def parse(self) -> None:
+    def _parse(self) -> None:
         """Parse the URN string into components."""
         urn = self.value.split("#")[0]
         parts = urn.split(":")
 
         if len(parts) >= 3:
-            self.namespace = parts[2]
+            object.__setattr__(self, "namespace", parts[2])
 
         if len(parts) >= 4:
             id_part = parts[3].split(":", 1)
             identifier = id_part[0]
 
             if len(id_part) > 1:
-                self.reference = id_part[1]
+                object.__setattr__(self, "reference", id_part[1])
 
             id_parts = identifier.split(".")
             if len(id_parts) >= 1:
-                self.textgroup = id_parts[0]
+                object.__setattr__(self, "textgroup", id_parts[0])
             if len(id_parts) >= 2:
-                self.work = id_parts[1]
+                object.__setattr__(self, "work", id_parts[1])
             if len(id_parts) >= 3:
-                self.version = id_parts[2]
+                object.__setattr__(self, "version", id_parts[2])
 
         if len(parts) >= 5:
-            self.reference = parts[4]
+            object.__setattr__(self, "reference", parts[4])
 
     def get_id_components(self) -> Dict[str, Optional[str]]:
         """Get the ID components of the URN."""
@@ -101,5 +109,19 @@ class EnhancedURN(BaseModel):
             # It's the old CtsUrn
             return original_class(self.value)
         else:
-            # Return self
-            return self
+            # Try to instantiate with the value
+            try:
+                return original_class(self.value)
+            except Exception:
+                # Return self as fallback
+                return self
+
+    def __eq__(self, other: object) -> bool:
+        """Compare URNs by value."""
+        if isinstance(other, EnhancedURN):
+            return self.value == other.value
+        return False
+
+    def __hash__(self) -> int:
+        """Make URN hashable by using the value string."""
+        return hash(self.value)

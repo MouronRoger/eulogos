@@ -9,10 +9,10 @@ This module provides validation functionality including:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 from fastapi import HTTPException, Request
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.models.enhanced_urn import EnhancedURN
 
@@ -23,19 +23,16 @@ logger = logging.getLogger(__name__)
 class ExportOptions(BaseModel):
     """Validation model for export options."""
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")  # Forbid extra attributes
+
     reference: Optional[str] = None
     filename: Optional[str] = None
     include_metadata: bool = True
     custom_css: Optional[str] = None
     format: str = "html"
     compression: Optional[str] = Field(
-        None, description="Compression format to use (gzip, bzip2, or zip)", regex="^(gzip|bzip2|zip)?$"
+        None, description="Compression format to use (gzip, bzip2, or zip)", pattern="^(gzip|bzip2|zip)?$"
     )
-
-    class Config:
-        """Pydantic config."""
-
-        extra = "forbid"  # Forbid extra attributes
 
 
 class ValidationMiddleware:

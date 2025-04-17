@@ -1,23 +1,24 @@
-"""Service for XML document processing.
+"""Enhanced service for XML document processing.
 
-This module provides the EnhancedXMLService which processes XML documents using
-the integrated_catalog.json as the source of truth for file paths.
+This service provides XML document handling with caching and reference extraction.
 """
 
-import logging
 import os
 import re
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from datetime import datetime
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union
+
+from loguru import logger
 
 from app.config import EulogosSettings
 from app.models.enhanced_urn import EnhancedURN
 from app.models.xml_document import XMLDocument, XMLReference
 from app.services.enhanced_catalog_service import EnhancedCatalogService
 
-logger = logging.getLogger(__name__)
+# Define Element type for type annotations
+Element = TypeVar("Element", bound=ET.Element)
 
 
 class EnhancedXMLService:
@@ -239,17 +240,22 @@ class EnhancedXMLService:
 
         return metadata
 
-    def _extract_references(self, document: XMLDocument) -> None:
+    def _extract_references(self, document: XMLDocument) -> Dict[str, XMLReference]:
         """Extract references from an XML document.
 
         Args:
             document: XML document object
+
+        Returns:
+            Dictionary of references
         """
         try:
             self._extract_references_recursive(document.root_element, document, "")
             logger.debug(f"Extracted {len(document.references)} references")
+            return document.references
         except Exception as e:
             logger.error(f"Error extracting references: {e}")
+            return {}
 
     def _extract_references_recursive(self, element: ET.Element, document: XMLDocument, parent_ref: str) -> None:
         """Recursively extract references from an element.
@@ -454,3 +460,243 @@ class EnhancedXMLService:
         except Exception as e:
             logger.error(f"Error converting element to HTML: {e}")
             return f"<span class='error'>Error processing element: {e}</span>"
+
+    def _create_document_from_element(self, element: ET.Element) -> XMLDocument:
+        """Create an XMLDocument instance from an element.
+
+        This is used by the adapter for backward compatibility.
+
+        Args:
+            element: XML element to convert
+
+        Returns:
+            XMLDocument instance
+        """
+        from app.models.xml_document import XMLDocument
+
+        # Create a basic document with the element
+        document = XMLDocument(
+            root_element=element, references={}, metadata={}, urn=None  # No URN associated with this document
+        )
+
+        # Extract references from the element
+        references = self._extract_references(document)
+
+        # Update the document with references
+        document.references = references
+
+        return document
+
+    def tokenize_document(self, document: XMLDocument) -> List[Dict[str, Any]]:
+        """Process XML document into tokens for word-level analysis.
+
+        Args:
+            document: XML document to tokenize
+
+        Returns:
+            List of token dictionaries with type, text, and index
+        """
+        tokens = []
+        word_index = 0
+
+        try:
+            # Get all text from the document
+            text = "".join(document.root_element.itertext())
+
+            # Simple tokenization by spaces and punctuation
+            import re
+
+            words = re.findall(r"\w+", text)
+
+            for word in words:
+                tokens.append({"type": "word", "text": word, "index": word_index})
+                word_index += 1
+
+            return tokens
+        except Exception as e:
+            logger.error(f"Error tokenizing document: {e}")
+            return []
+
+    def transform_document_to_html(self, document: XMLDocument) -> str:
+        """Transform an entire document to HTML.
+
+        Args:
+            document: XML document to transform
+
+        Returns:
+            HTML string
+        """
+        try:
+            html_parts = []
+            html_parts.append("<div>")
+
+            # Transform the entire document
+            for ref, element in document.references.items():
+                html = self._process_element_to_html(element, ref)
+                html_parts.append(html)
+
+            html_parts.append("</div>")
+            return "".join(html_parts)
+        except Exception as e:
+            logger.error(f"Error transforming document to HTML: {e}")
+            return f"<div class='error'>Error: {e}</div>"
+
+    def transform_passage_to_html(self, document: XMLDocument, reference: str) -> str:
+        """Transform a specific passage to HTML.
+
+        Args:
+            document: XML document
+            reference: Reference string
+
+        Returns:
+            HTML string
+        """
+        try:
+            element = self.get_passage_element(document, reference)
+            if element is None:
+                return f"<div class='error'>Reference not found: {reference}</div>"
+
+            return self._process_element_to_html(element, reference)
+        except Exception as e:
+            logger.error(f"Error transforming passage to HTML: {e}")
+            return f"<div class='error'>Error: {e}</div>"
+
+    def get_passage_element(self, document: XMLDocument, reference: str) -> Optional[Element]:
+        """Get passage element by reference.
+
+        Args:
+            document: XML document
+            reference: Reference string
+
+        Returns:
+            Element for the passage or None if not found
+        """
+        try:
+            return document.references.get(reference)
+        except Exception as e:
+            logger.error(f"Error getting passage element: {e}")
+            return None
+
+    def get_passage_text(self, document: XMLDocument, reference: Optional[str] = None) -> str:
+        """Get passage text.
+
+        Args:
+            document: XML document
+            reference: Optional reference string
+
+        Returns:
+            Text content of the passage
+        """
+        try:
+            if reference:
+                element = self.get_passage_element(document, reference)
+                if element is None:
+                    return f"Reference not found: {reference}"
+                return "".join(element.itertext())
+            else:
+                # Return the entire document text
+                return "".join(document.root_element.itertext())
+        except Exception as e:
+            logger.error(f"Error getting passage text: {e}")
+            return f"Error: {e}"
+
+    def get_adjacent_references_from_document(
+        self, document: XMLDocument, reference: Optional[str] = None
+    ) -> Dict[str, Optional[str]]:
+        """Get adjacent references from a document.
+
+        Args:
+            document: XML document
+            reference: Reference string
+
+        Returns:
+            Dictionary with "prev" and "next" references
+        """
+        try:
+            refs = list(document.references.keys())
+            if not refs:
+                return {"prev": None, "next": None}
+
+            # Sort references
+            refs.sort(key=self._sort_reference_key)
+
+            if reference is None:
+                # Return first reference as next if no reference provided
+                return {"prev": None, "next": refs[0] if refs else None}
+
+            # Find the current reference index
+            try:
+                current_index = refs.index(reference)
+            except ValueError:
+                # Reference not found, return first as fallback
+                return {"prev": None, "next": refs[0] if refs else None}
+
+            # Get previous and next
+            prev_ref = refs[current_index - 1] if current_index > 0 else None
+            next_ref = refs[current_index + 1] if current_index < len(refs) - 1 else None
+
+            return {"prev": prev_ref, "next": next_ref}
+        except Exception as e:
+            logger.error(f"Error getting adjacent references: {e}")
+            return {"prev": None, "next": None}
+
+    def _process_element_to_html(self, element: Element, parent_ref: Optional[str] = None) -> str:
+        """Process an element to HTML.
+
+        Args:
+            element: Element to process
+            parent_ref: Optional parent reference
+
+        Returns:
+            HTML string
+        """
+        try:
+            # Handle different tag types
+            attrs = element.attrib.copy()
+
+            # Create HTML attributes string
+            html_attrs = ""
+            for k, v in attrs.items():
+                # Handle namespace attributes
+                if "}" in k:
+                    k = k.split("}")[-1]
+
+                # Use data-ref for n attribute to make it accessible in CSS
+                if k == "n":
+                    html_attrs += f' data-ref="{v}"'
+                    html_attrs += f' id="ref-{parent_ref}.{v}" ' if parent_ref else f' id="ref-{v}" '
+                else:
+                    html_attrs += f' data-{k}="{v}"'
+
+            # Add reference as class
+            ref_attr = ""
+            if "n" in attrs:
+                ref = f"{parent_ref}.{attrs['n']}" if parent_ref else attrs["n"]
+                ref_attr = f' class="ref" data-ref="{ref}"'
+
+            # Start tag
+            html = f"<div{ref_attr}{html_attrs}>"
+
+            # Add reference number if this is a reference
+            if "n" in attrs:
+                html += f'<span class="ref-num">{attrs["n"]}</span>'
+
+            # Add text content
+            if element.text:
+                html += f'<div><span class="text">{element.text}</span></div>'
+
+            # Process children
+            for child in element:
+                html += self._process_element_to_html(
+                    child, f"{parent_ref}.{attrs['n']}" if parent_ref and "n" in attrs else attrs.get("n", "")
+                )
+                if child.tail:
+                    html += f'<span class="tail">{child.tail}</span>'
+
+            # End tag
+            html += "</div>"
+
+            return html
+        except Exception as e:
+            logger.error(f"Error processing element to HTML: {e}")
+            return f"<div class='error'>Error: {e}</div>"

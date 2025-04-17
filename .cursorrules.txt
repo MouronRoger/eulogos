@@ -1,0 +1,33 @@
+# .cursurrules
+
+[tool.cursurrules]
+# run these steps whenever Cursor generates new code...
+on_generate = ["format", "lint", "doc"]
+# ...and again on file save
+on_save     = ["format", "lint", "doc"]
+# if any step reports a warning or error, the completion will be rejected
+fail_on_violation = true
+
+# 1) Black formatter
+[tool.cursurrules.format]
+name           = "black"
+line-length    = 88
+target-version = ["py39"]
+
+# 2) Flake8 linting
+[tool.cursurrules.lint.flake8]
+enabled          = true
+# avoid conflicts with Black’s spacing
+ignore           = ["E203", "W503"]
+# catch errors, complexity, unused names, plus doc‑string D1xx codes
+select           = ["E", "F", "W", "C90", "B", "D100", "D101", "D102", "D103"]
+max-line-length  = 88
+# treat any violation as “fail”
+fail_on          = "warning"
+
+# 3) pydocstyle doc‑string checks
+[tool.cursurrules.lint.pydocstyle]
+enabled    = true
+convention = "pep257"
+select     = ["D100", "D101", "D102", "D103"]
+fail_on    = "error"

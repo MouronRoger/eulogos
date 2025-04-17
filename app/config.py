@@ -5,14 +5,16 @@ with support for environment variables and .env files.
 """
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, ClassVar, Dict, Optional
 
-from pydantic import Field, validator
+from pydantic import ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
 
 
 class EulogosSettings(BaseSettings):
     """Configuration settings for Eulogos application."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(env_prefix="EULOGOS_", env_file=".env")
 
     # Catalog paths
     catalog_path: Path = Field(
@@ -25,6 +27,9 @@ class EulogosSettings(BaseSettings):
     # Cache settings
     xml_cache_size: int = Field(default=100, description="Maximum number of XML documents to cache")
     xml_cache_ttl: int = Field(default=3600, description="Time to live for cached XML documents in seconds")
+    cache_max_size_bytes: int = Field(
+        default=50 * 1024 * 1024, description="Maximum cache size in bytes (default: 50MB)"
+    )
 
     # Performance settings
     enable_caching: bool = Field(default=True, description="Enable caching for XML documents")
@@ -44,26 +49,25 @@ class EulogosSettings(BaseSettings):
     log_level: str = Field(default="INFO", description="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     log_file: Optional[Path] = Field(default=Path("logs/eulogos.log"), description="Log file path")
 
-    @validator("catalog_path", "data_dir", pre=True)
+    @field_validator("catalog_path", "data_dir", mode="before")
+    @classmethod
     def validate_paths(cls, v):
         """Validate paths and convert to Path objects."""
         if isinstance(v, str):
             return Path(v)
         return v
 
-    @validator("api_version")
+    @field_validator("api_version")
+    @classmethod
     def validate_api_version(cls, v):
         """Validate API version."""
         if v not in (1, 2):
             raise ValueError("API version must be either 1 or 2")
         return v
 
-    def as_dict(self) -> Dict[str, Any]:
-        """Convert settings to dictionary."""
-        return {k: str(v) if isinstance(v, Path) else v for k, v in self.dict().items()}
+    def model_dump(self) -> Dict[str, Any]:
+        """Convert settings to dictionary.
 
-    class Config:
-        """Configure settings behavior."""
-
-        env_prefix = "EULOGOS_"
-        env_file = ".env"
+        Replaces the deprecated dict() method.
+        """
+        return {k: str(v) if isinstance(v, Path) else v for k, v in super().model_dump().items()}
