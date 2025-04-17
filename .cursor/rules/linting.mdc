@@ -1,0 +1,28 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+rules:
+  - All code must be formatted using Black.
+  - Use 4-space indentation.
+  - Avoid using semicolons.
+  - Use double quotes for strings, unless the string contains double quotes.
+  - Lines must not exceed 88 characters unless unavoidable.
+  - Functions must have type annotations for all parameters and return types.
+  - Variables must use snake_case.
+  - Class names must use PascalCase.
+  - Avoid wildcard imports (e.g., from module import *).
+  - Use explicit relative imports within packages.
+  - Include docstrings for all public classes and functions.
+  - No unused variables or imports (enforced via flake8).
+  - Prefer list/dict/set comprehensions over loops for transformations.
+  - Avoid global variables unless absolutely necessary.
+  - Raise specific exceptions, not generic ones (e.g., avoid `raise Exception`).
+  - Use f-strings for string interpolation.
+  - Don’t include TODOs without a clear description and date.
+
+language: python
+linter: flake8
+formatter: black
+typing: required

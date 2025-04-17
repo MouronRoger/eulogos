@@ -1,6 +1,8 @@
-# Scaife Import System Redesign
+# Scaife Import System Redesign theoretical only
 
-This document outlines a redesigned Scaife import system for the First1KGreek Browser project, built from scratch with a modern FastAPI structure, HTMX integration, and using author_data.json as the canonical record.
+Not to be acted upon
+
+This document outlines a possible redesigned Scaife import system for the First1KGreek Browser project, built from scratch with a modern FastAPI structure, HTMX integration, and using author_data.json as the canonical record.
 
 ## System Architecture
 
@@ -87,7 +89,7 @@ class Work(BaseModel):
 class Edition(BaseModel):
     id: str                       # e.g., "perseus-grc2"
     full_id: str                  # e.g., "tlg0007.tlg136.perseus-grc2"
-    language: str                 # e.g., "grc", "eng" 
+    language: str                 # e.g., "grc", "eng"
     source: str                   # e.g., "Perseus"
     file_path: str                # Path to XML file
 ```
@@ -99,7 +101,7 @@ class ScaifeImport(BaseModel):
     url: str                      # Scaife URL
     author_name: Optional[str] = None
     work_title: Optional[str] = None
-    
+
 class BatchImport(BaseModel):
     urls: List[str]               # List of Scaife URLs
     default_author_name: Optional[str] = None
@@ -114,25 +116,25 @@ class AuthorService:
     def __init__(self, data_path: str = "data/authors/author_data.json"):
         self.data_path = data_path
         self._authors = self._load_authors()
-        
+
     def _load_authors(self) -> Dict[str, Author]:
         # Load authors from author_data.json
-        
+
     def get_author(self, author_id: str) -> Optional[Author]:
         # Get author by ID
-    
+
     def get_all_authors(self) -> List[Author]:
         # Get all authors
-        
+
     def create_author(self, author: AuthorCreate) -> Author:
         # Create a new author
-        
+
     def update_author(self, author_id: str, author: AuthorUpdate) -> Optional[Author]:
         # Update an existing author
-        
+
     def add_work_to_author(self, author_id: str, work_id: str) -> bool:
         # Add a work to an author's works list
-        
+
     def save(self):
         # Save author data back to author_data.json
 ```
@@ -144,36 +146,36 @@ class ImportService:
     def __init__(self, author_service: AuthorService, data_dir: str = "data/texts"):
         self.author_service = author_service
         self.data_dir = data_dir
-        
+
     async def import_from_scaife(self, import_data: ScaifeImport) -> Dict[str, Any]:
         # Parse Scaife URL to extract URN components
         author_id, work_id, edition_id = self._parse_urn(import_data.url)
-        
+
         # Create directory structure
         author_dir, work_dir = self._create_directories(author_id, work_id)
-        
+
         # Fetch XML content
         xml_content = await self._fetch_xml(import_data.url)
-        
+
         # Process author metadata
         author = self._process_author(author_id, import_data.author_name, xml_content)
-        
+
         # Process work metadata
         work = self._process_work(author_id, work_id, import_data.work_title, xml_content)
-        
+
         # Save XML content
         file_path = self._save_xml(author_id, work_id, edition_id, xml_content)
-        
+
         # Update author_data.json
         self._update_author_data(author, work)
-        
+
         return {
             "author": author,
             "work": work,
             "file_path": file_path,
             "success": True
         }
-    
+
     async def batch_import(self, batch: BatchImport) -> List[Dict[str, Any]]:
         # Import multiple Scaife URLs
         results = []
@@ -188,28 +190,28 @@ class ImportService:
             except Exception as e:
                 results.append({"url": url, "success": False, "error": str(e)})
         return results
-    
+
     def _parse_urn(self, url: str) -> Tuple[str, str, str]:
         # Extract author_id, work_id, and edition_id from URL
-        
+
     def _create_directories(self, author_id: str, work_id: str) -> Tuple[str, str]:
         # Create author and work directories
-        
+
     async def _fetch_xml(self, url: str) -> str:
         # Fetch XML content from Scaife URL
-        
-    def _process_author(self, author_id: str, provided_name: Optional[str], 
+
+    def _process_author(self, author_id: str, provided_name: Optional[str],
                         xml_content: str) -> Author:
         # Get or create author
-        
-    def _process_work(self, author_id: str, work_id: str, provided_title: Optional[str], 
+
+    def _process_work(self, author_id: str, work_id: str, provided_title: Optional[str],
                       xml_content: str) -> Work:
         # Get or create work
-        
-    def _save_xml(self, author_id: str, work_id: str, edition_id: str, 
+
+    def _save_xml(self, author_id: str, work_id: str, edition_id: str,
                   xml_content: str) -> str:
         # Save XML content to file
-        
+
     def _update_author_data(self, author: Author, work: Work):
         # Update author_data.json with new author/work information
 ```
@@ -246,65 +248,65 @@ async def batch_import(
 <!-- templates/import/form.html -->
 <div class="import-container">
     <h2>Import from Scaife</h2>
-    
+
     <div class="tab-container">
         <div class="tabs">
-            <button 
-                class="tab active" 
-                hx-get="/import/single-form" 
+            <button
+                class="tab active"
+                hx-get="/import/single-form"
                 hx-target="#tab-content">
                 Single Import
             </button>
-            <button 
-                class="tab" 
-                hx-get="/import/batch-form" 
+            <button
+                class="tab"
+                hx-get="/import/batch-form"
                 hx-target="#tab-content">
                 Batch Import
             </button>
         </div>
-        
+
         <div id="tab-content">
             <!-- Initial tab content (Single Import) -->
-            <form hx-post="/api/v1/imports/scaife" 
+            <form hx-post="/api/v1/imports/scaife"
                   hx-target="#import-results"
                   hx-indicator="#loading-indicator">
-                
+
                 <div class="form-group">
                     <label for="scaife-url">Scaife URL:</label>
-                    <input type="text" 
-                           id="scaife-url" 
-                           name="url" 
+                    <input type="text"
+                           id="scaife-url"
+                           name="url"
                            placeholder="https://scaife.perseus.org/library/urn:cts:greekLit:tlg0007.tlg136.perseus-grc2:1-47/cts-api-xml/"
                            required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="author-name">Author Name (optional):</label>
-                    <input type="text" 
-                           id="author-name" 
+                    <input type="text"
+                           id="author-name"
                            name="author_name"
                            placeholder="e.g., Plutarch">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="work-title">Work Title (optional):</label>
-                    <input type="text" 
-                           id="work-title" 
+                    <input type="text"
+                           id="work-title"
                            name="work_title"
                            placeholder="e.g., De Stoicorum Repugnantiis">
                 </div>
-                
+
                 <button type="submit" class="btn btn-primary">
                     Import Text
                 </button>
             </form>
         </div>
     </div>
-    
+
     <div class="loading-indicator" id="loading-indicator">
         Importing text... <div class="spinner"></div>
     </div>
-    
+
     <div id="import-results">
         <!-- Import results will be displayed here -->
     </div>
@@ -321,7 +323,7 @@ async def batch_import(
         <h3>Import Successful!</h3>
         <p>Imported <strong>{{ work.title }}</strong> by <strong>{{ author.name }}</strong></p>
         <p>File saved to: <code>{{ file_path }}</code></p>
-        
+
         <div class="actions">
             <a href="/view?path={{ file_path }}" class="btn btn-secondary">
                 View XML
@@ -353,7 +355,7 @@ async def batch_import(
 async def import_page(request: Request):
     """Render the import page"""
     return templates.TemplateResponse(
-        "import/page.html", 
+        "import/page.html",
         {"request": request}
     )
 
@@ -388,7 +390,7 @@ class XMLParser:
         if title_match:
             return title_match.group(1).strip()
         return None
-    
+
     @staticmethod
     def detect_language(xml_content: str) -> str:
         """Detect language from XML content"""
@@ -398,7 +400,7 @@ class XMLParser:
             return lang_match.group(1)
         # Default to Greek
         return "grc"
-    
+
     @staticmethod
     def extract_author(xml_content: str) -> Optional[str]:
         """Extract author name from XML content"""
@@ -407,16 +409,16 @@ class XMLParser:
         if author_match:
             return author_match.group(1).strip()
         return None
-    
+
     @staticmethod
     def create_metadata_xml(author_id: str, author_name: str) -> str:
         """Create author metadata XML"""
         return f"""<ti:textgroup xmlns:ti="http://chs.harvard.edu/xmlns/cts" urn="urn:cts:greekLit:{author_id}">
     <ti:groupname xml:lang="eng">{author_name}</ti:groupname>
 </ti:textgroup>"""
-    
+
     @staticmethod
-    def create_work_metadata_xml(author_id: str, work_id: str, work_title: str, 
+    def create_work_metadata_xml(author_id: str, work_id: str, work_title: str,
                               language: str, full_id: str) -> str:
         """Create work metadata XML"""
         return f"""<ti:work xmlns:ti="http://chs.harvard.edu/xmlns/cts" groupUrn="urn:cts:greekLit:{author_id}" xml:lang="{language}" urn="urn:cts:greekLit:{author_id}.{work_id}">
@@ -487,7 +489,7 @@ if __name__ == "__main__":
 
 ### 1. Modern API Architecture
 
-- **Clear Separation of Concerns**: 
+- **Clear Separation of Concerns**:
   - API endpoints handle request/response
   - Services contain business logic
   - Data models define structured data

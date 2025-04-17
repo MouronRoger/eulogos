@@ -1,35 +1,66 @@
 """FastAPI dependencies for service instances."""
 
+import logging
 from functools import lru_cache
 
-from app.services.catalog_service import CatalogService
-from app.services.xml_processor_service import XMLProcessorService
+from app.config import EulogosSettings
+from app.services.catalog_service_adapter import CatalogServiceAdapter
+from app.services.enhanced_catalog_service import EnhancedCatalogService
+from app.services.enhanced_xml_service import EnhancedXMLService
+from app.services.xml_processor_adapter import XMLProcessorServiceAdapter
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache()
-def get_catalog_service() -> CatalogService:
-    """Get a CatalogService instance.
-
-    Returns:
-        CatalogService instance
-    """
-    return CatalogService(catalog_path="integrated_catalog.json", data_dir="data")
+def get_settings() -> EulogosSettings:
+    """Get application settings, cached for performance."""
+    logger.debug("Creating EulogosSettings instance")
+    return EulogosSettings()
 
 
 @lru_cache()
-def get_xml_processor_service(
-    catalog_service: CatalogService = None,
-) -> XMLProcessorService:
-    """Get an XMLProcessorService instance with catalog service for path resolution.
+def get_enhanced_catalog_service() -> EnhancedCatalogService:
+    """Get an EnhancedCatalogService instance, cached for performance."""
+    logger.debug("Creating EnhancedCatalogService instance")
+    settings = get_settings()
+    service = EnhancedCatalogService(settings=settings)
 
-    Args:
-        catalog_service: Optional catalog service instance
+    # Eagerly load the catalog
+    service.load_catalog()
+
+    return service
+
+
+@lru_cache()
+def get_enhanced_xml_service() -> EnhancedXMLService:
+    """Get an EnhancedXMLService instance, cached for performance."""
+    logger.debug("Creating EnhancedXMLService instance")
+    catalog_service = get_enhanced_catalog_service()
+    settings = get_settings()
+    return EnhancedXMLService(catalog_service=catalog_service, settings=settings)
+
+
+@lru_cache()
+def get_catalog_service() -> CatalogServiceAdapter:
+    """Get a CatalogServiceAdapter instance for backward compatibility.
 
     Returns:
-        XMLProcessorService instance
+        CatalogServiceAdapter instance that wraps EnhancedCatalogService
     """
-    # If catalog_service is not provided through DI, get it
-    if catalog_service is None:
-        catalog_service = get_catalog_service()
+    logger.debug("Creating CatalogServiceAdapter instance")
+    enhanced_service = get_enhanced_catalog_service()
+    return CatalogServiceAdapter(enhanced_service=enhanced_service)
 
-    return XMLProcessorService(data_path="data", catalog_service=catalog_service)
+
+@lru_cache()
+def get_xml_processor_service() -> XMLProcessorServiceAdapter:
+    """Get a XMLProcessorServiceAdapter instance for backward compatibility.
+
+    Returns:
+        XMLProcessorServiceAdapter instance
+    """
+    logger.debug("Creating XMLProcessorServiceAdapter instance")
+    catalog_service = get_enhanced_catalog_service()
+    xml_service = get_enhanced_xml_service()
+    return XMLProcessorServiceAdapter(enhanced_service=xml_service, catalog_service=catalog_service)

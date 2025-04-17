@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="{{ metadata.get('language', 'grc') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        /* Default styles */
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            font-family: 'Times New Roman', Times, serif;
+            line-height: 1.6;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .metadata {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-style: italic;
+        }
+        .creators {
+            margin: 1rem 0;
+        }
+        .content {
+            margin-top: 2rem;
+        }
+        /* Custom CSS */
+        {{ css | safe }}
+    </style>
+</head>
+<body>
+    <h1>{{ title }}</h1>
+
+    <div class="metadata">
+        {% if metadata.get('creators') %}
+        <div class="creators">
+            By {{ metadata.get('creators') | join(', ') }}
+        </div>
+        {% endif %}
+
+        {% if metadata.get('editor') %}
+        <div class="editor">
+            Edited by {{ metadata.get('editor') }}
+        </div>
+        {% endif %}
+
+        {% if metadata.get('translator') %}
+        <div class="translator">
+            Translated by {{ metadata.get('translator') }}
+        </div>
+        {% endif %}
+
+        <div class="urn">
+            URN: {{ metadata.get('urn') }}
+        </div>
+    </div>
+
+    <div class="content">
+        {{ content | safe }}
+    </div>
+</body>
+</html>
