@@ -32,6 +32,14 @@ class EulogosSettings(BaseSettings):
     # Compatibility settings
     compatibility_mode: bool = Field(default=True, description="Enable compatibility with existing code")
 
+    # API version settings
+    api_version: int = Field(default=1, description="Default API version (1 or 2)")
+    enable_api_redirects: bool = Field(default=True, description="Enable automatic redirects from v1 to v2 API")
+    deprecate_v1_api: bool = Field(default=False, description="Add deprecation headers to v1 API responses")
+    v1_sunset_date: Optional[str] = Field(
+        default="2025-12-31", description="Sunset date for v1 API (ISO format, e.g., '2025-12-31')"
+    )
+
     # Logging settings
     log_level: str = Field(default="INFO", description="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     log_file: Optional[Path] = Field(default=Path("logs/eulogos.log"), description="Log file path")
@@ -41,6 +49,13 @@ class EulogosSettings(BaseSettings):
         """Validate paths and convert to Path objects."""
         if isinstance(v, str):
             return Path(v)
+        return v
+
+    @validator("api_version")
+    def validate_api_version(cls, v):
+        """Validate API version."""
+        if v not in (1, 2):
+            raise ValueError("API version must be either 1 or 2")
         return v
 
     def as_dict(self) -> Dict[str, Any]:

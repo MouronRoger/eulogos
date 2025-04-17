@@ -8,11 +8,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
+from app.dependencies import get_settings
+from app.middleware.api_redirect import APIRedirectMiddleware
 from app.routers import admin, browse, export, reader, texts
 from app.routers.v2 import browse as browse_v2
 from app.routers.v2 import export as export_v2
 from app.routers.v2 import reader as reader_v2
 from app.routers.v2 import texts as texts_v2
+
+# Get application settings
+settings = get_settings()
 
 # Set up the application
 app = FastAPI(
@@ -20,6 +25,9 @@ app = FastAPI(
     description="A web application for exploring ancient Greek texts",
     version="0.1.0",
 )
+
+# Add middlewares
+app.add_middleware(APIRedirectMiddleware)
 
 # Set up static files and templates
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "app/static")

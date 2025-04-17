@@ -79,7 +79,7 @@
                         </button>
 
                         <div x-show="showToc" class="mt-2 p-3 border rounded max-h-64 overflow-y-auto bg-white">
-                            <div hx-get="/api/references/{{ urn }}" hx-trigger="load" hx-target="this">
+                            <div hx-get="/api/v2/references/{{ urn }}" hx-trigger="load" hx-target="this">
                                 Loading references...
                             </div>
                         </div>
@@ -88,14 +88,14 @@
                     <!-- Text controls -->
                     <div class="mb-6 flex space-x-2">
                         <button
-                            hx-post="/api/texts/{{ text.urn }}/archive?archive={{ not text.archived }}"
+                            hx-post="/api/v2/texts/{{ text.urn }}/archive?archive={{ not text.archived }}"
                             hx-target="#reader-container"
                             class="px-2 py-1 {{ 'bg-green-600' if text.archived else 'bg-gray-600' }} text-white rounded text-sm"
                         >
                             {{ 'Unarchive' if text.archived else 'Archive' }}
                         </button>
                         <button
-                            hx-post="/api/texts/{{ text.urn }}/favorite"
+                            hx-post="/api/v2/texts/{{ text.urn }}/favorite"
                             hx-target="#reader-container"
                             class="px-2 py-1 {{ 'bg-yellow-600' if text.favorite else 'bg-gray-600' }} text-white rounded text-sm"
                         >
@@ -116,13 +116,13 @@
                                 class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10"
                             >
                                 <div class="py-1" role="menu">
-                                    <a href="/api/export/{{ text.urn }}?format=pdf" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">PDF</a>
-                                    <a href="/api/export/{{ text.urn }}?format=epub" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">ePub</a>
-                                    <a href="/api/export/{{ text.urn }}?format=mobi" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">MOBI</a>
-                                    <a href="/api/export/{{ text.urn }}?format=markdown" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">Markdown</a>
-                                    <a href="/api/export/{{ text.urn }}?format=docx" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">DOCX</a>
-                                    <a href="/api/export/{{ text.urn }}?format=latex" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">LaTeX</a>
-                                    <a href="/api/export/{{ text.urn }}?format=html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">HTML</a>
+                                    <a href="/api/v2/export/{{ text.urn }}?format=pdf" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">PDF</a>
+                                    <a href="/api/v2/export/{{ text.urn }}?format=epub" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">ePub</a>
+                                    <a href="/api/v2/export/{{ text.urn }}?format=mobi" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">MOBI</a>
+                                    <a href="/api/v2/export/{{ text.urn }}?format=markdown" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">Markdown</a>
+                                    <a href="/api/v2/export/{{ text.urn }}?format=docx" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">DOCX</a>
+                                    <a href="/api/v2/export/{{ text.urn }}?format=latex" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">LaTeX</a>
+                                    <a href="/api/v2/export/{{ text.urn }}?format=html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">HTML</a>
                                 </div>
                             </div>
                         </div>
