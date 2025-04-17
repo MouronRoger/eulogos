@@ -1,157 +1,252 @@
-#!/usr/bin/env python3
-"""Script to validate the catalog index against data files."""
+#!/usr/bin/env python
+"""Validate the integrated catalog JSON structure and content.
+
+This script checks the integrated_catalog.json file for structural integrity
+and basic content validation, ensuring it meets expected format requirements.
+"""
 
 import argparse
 import json
+import logging
 import os
 import sys
-from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
-
-from loguru import logger
-
-# Add the parent directory to sys.path to make app package available
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-
-from app.services.catalog_service import CatalogService
-from app.utils.urn import CtsUrn
+from typing import Any, Dict, List, Optional, Tuple
 
 
-def setup_logger(log_level: str) -> None:
-    """Set up the logger with the specified log level.
-    
+def setup_logger(log_level: str = "info") -> logging.Logger:
+    """Set up and configure the logger.
+
     Args:
-        log_level: The log level to use
+        log_level: The logging level as a string (debug, info, warning, error, critical)
+
+    Returns:
+        Logger: Configured logger instance
     """
     log_levels = {
-        "debug": "DEBUG",
-        "info": "INFO",
-        "warning": "WARNING",
-        "error": "ERROR",
-        "critical": "CRITICAL",
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL,
     }
-    level = log_levels.get(log_level.lower(), "INFO")
-    
-    # Remove default logger
-    logger.remove()
-    
-    # Add console logger
-    logger.add(sys.stderr, level=level)
-    
-    # Add file logger
-    os.makedirs("logs", exist_ok=True)
-    logger.add("logs/catalog_validation.log", rotation="10 MB", level="DEBUG")
+
+    level = log_levels.get(log_level.lower(), logging.INFO)
+
+    logging.basicConfig(
+        level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", handlers=[logging.StreamHandler()]
+    )
+
+    return logging.getLogger("catalog_validator")
+
+
+def load_catalog(catalog_path: str) -> Dict[str, Any]:
+    """Load and parse the catalog JSON file.
+
+    Args:
+        catalog_path: Path to the catalog file
+
+    Returns:
+        Dict: The parsed catalog as a dictionary
+
+    Raises:
+        FileNotFoundError: If the catalog file doesn't exist
+        json.JSONDecodeError: If the catalog file contains invalid JSON
+    """
+    logger = logging.getLogger("catalog_validator")
+
+    if not os.path.exists(catalog_path):
+        logger.error(f"Catalog file not found: {catalog_path}")
+        raise FileNotFoundError(f"Catalog file not found: {catalog_path}")
+
+    try:
+        with open(catalog_path, "r", encoding="utf-8") as f:
+            catalog = json.load(f)
+        logger.info(f"Successfully loaded catalog from {catalog_path}")
+        return catalog
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse catalog JSON: {e}")
+        raise
+
+
+def validate_catalog_structure(catalog: Dict[str, Any]) -> List[str]:
+    """Validate the overall structure of the catalog.
+
+    Args:
+        catalog: The catalog dictionary to validate
+
+    Returns:
+        List[str]: List of structural validation errors, empty if no errors
+    """
+    errors = []
+
+    # Check for required top-level keys
+    required_keys = ["metadata", "works"]
+    for key in required_keys:
+        if key not in catalog:
+            errors.append(f"Missing required top-level key: '{key}'")
+
+    # Check metadata structure if it exists
+    if "metadata" in catalog:
+        metadata = catalog["metadata"]
+        if not isinstance(metadata, dict):
+            errors.append("'metadata' must be a dictionary")
+        else:
+            # Check for required metadata fields
+            metadata_fields = ["version", "generated", "total_entries"]
+            for field in metadata_fields:
+                if field not in metadata:
+                    errors.append(f"Missing required metadata field: '{field}'")
+
+    # Check works structure if it exists
+    if "works" in catalog:
+        works = catalog["works"]
+        if not isinstance(works, dict):
+            errors.append("'works' must be a dictionary")
+
+    return errors
+
+
+def validate_work_entries(catalog: Dict[str, Any], data_dir: Optional[str] = None) -> List[str]:
+    """Validate individual work entries in the catalog.
+
+    Args:
+        catalog: The catalog dictionary to validate
+        data_dir: Optional path to the data directory to verify file existence
+
+    Returns:
+        List[str]: List of validation errors for work entries
+    """
+    errors = []
+    work_ids = set()
+
+    if "works" not in catalog:
+        return ["Missing 'works' section in catalog"]
+
+    works = catalog["works"]
+
+    # Required fields for each work entry
+    required_fields = ["title", "author", "path", "file_id", "language"]
+
+    for work_id, work in works.items():
+        # Check for duplicate work IDs
+        if work_id in work_ids:
+            errors.append(f"Duplicate work ID: {work_id}")
+        work_ids.add(work_id)
+
+        # Check required fields
+        for field in required_fields:
+            if field not in work:
+                errors.append(f"Work {work_id}: Missing required field '{field}'")
+
+        # Check field types
+        if "title" in work and not isinstance(work["title"], str):
+            errors.append(f"Work {work_id}: 'title' must be a string")
+
+        if "author" in work and not isinstance(work["author"], str):
+            errors.append(f"Work {work_id}: 'author' must be a string")
+
+        if "path" in work and not isinstance(work["path"], str):
+            errors.append(f"Work {work_id}: 'path' must be a string")
+
+        if "file_id" in work and not isinstance(work["file_id"], str):
+            errors.append(f"Work {work_id}: 'file_id' must be a string")
+
+        # Check if files exist if data_dir is provided
+        if data_dir and "path" in work:
+            file_path = os.path.join(data_dir, work["path"])
+            if not os.path.exists(file_path):
+                errors.append(f"Work {work_id}: File does not exist: {file_path}")
+
+    return errors
+
+
+def validate_catalog(catalog_path: str, data_dir: Optional[str] = None) -> Tuple[bool, List[str]]:
+    """Validate the catalog file.
+
+    Args:
+        catalog_path: Path to the catalog file
+        data_dir: Optional path to the data directory
+
+    Returns:
+        Tuple[bool, List[str]]: (is_valid, list_of_validation_errors)
+    """
+    logger = logging.getLogger("catalog_validator")
+
+    try:
+        catalog = load_catalog(catalog_path)
+
+        # Perform validation
+        structure_errors = validate_catalog_structure(catalog)
+        work_errors = validate_work_entries(catalog, data_dir)
+
+        all_errors = structure_errors + work_errors
+
+        if not all_errors:
+            logger.info("Catalog validation successful. No errors found.")
+            is_valid = True
+        else:
+            for error in all_errors:
+                logger.error(f"Validation error: {error}")
+            logger.error(f"Catalog validation failed with {len(all_errors)} errors.")
+            is_valid = False
+
+        return is_valid, all_errors
+
+    except Exception as e:
+        logger.error(f"Validation failed due to exception: {str(e)}")
+        return False, [f"Exception during validation: {str(e)}"]
 
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments.
-    
+
     Returns:
-        Parsed arguments
+        argparse.Namespace: Parsed arguments
     """
-    parser = argparse.ArgumentParser(description="Validate catalog index against data files")
+    parser = argparse.ArgumentParser(description="Validate the integrated catalog JSON file.")
+
+    parser.add_argument("catalog", type=str, help="Path to the catalog file")
+    parser.add_argument("--data-dir", type=str, help="Optional path to the data directory to verify file existence")
     parser.add_argument(
-        "--catalog", "-c", 
-        default="catalog_index.json", 
-        help="Path to catalog_index.json file"
-    )
-    parser.add_argument(
-        "--authors", "-a", 
-        default="author_index.json", 
-        help="Path to author_index.json file"
-    )
-    parser.add_argument(
-        "--data", "-d", 
-        default="data", 
-        help="Path to data directory"
-    )
-    parser.add_argument(
-        "--output", "-o", 
-        help="Output file for validation results (JSON format)"
-    )
-    parser.add_argument(
-        "--log-level", "-l", 
-        default="info", 
+        "--log-level",
+        type=str,
+        default="info",
         choices=["debug", "info", "warning", "error", "critical"],
-        help="Set the log level"
+        help="Set the logging level",
     )
-    parser.add_argument(
-        "--missing-only", "-m", 
-        action="store_true",
-        help="Only report missing files and authors"
-    )
-    
+
     return parser.parse_args()
 
 
-def format_results(results: Dict, missing_only: bool = False) -> str:
-    """Format validation results for display.
-    
-    Args:
-        results: Validation results
-        missing_only: Only show missing files and authors
-    
+def main() -> int:
+    """Run the catalog validation process.
+
     Returns:
-        Formatted results string
+        int: Exit code (0 for success, 1 for validation errors)
     """
-    output = []
-    stats = results["stats"]
-    
-    output.append("=== Catalog Validation Results ===")
-    output.append(f"Total catalog entries: {stats['total_catalog_entries']}")
-    output.append(f"Total authors: {stats['total_authors']}")
-    output.append(f"Missing files: {stats['missing_files']}")
-    output.append(f"Missing authors: {stats['missing_authors']}")
-    output.append(f"Unlisted files: {stats['unlisted_files']}")
-    output.append(f"Validity: {'VALID' if results['validity'] else 'INVALID'}")
-    
-    if not missing_only or stats['missing_files'] > 0:
-        output.append("\n=== Missing Files ===")
-        for urn, file_path in results["missing_files"]:
-            output.append(f"URN: {urn}")
-            output.append(f"File: {file_path}")
-            output.append("")
-    
-    if not missing_only or stats['missing_authors'] > 0:
-        output.append("\n=== Textgroups Without Authors ===")
-        for textgroup in results["textgroups_without_authors"]:
-            output.append(f"Textgroup: {textgroup}")
-    
-    return "\n".join(output)
-
-
-def main() -> None:
-    """Run the catalog validation."""
     args = parse_args()
-    setup_logger(args.log_level)
-    
-    logger.info(f"Starting catalog validation")
-    logger.info(f"Catalog file: {args.catalog}")
-    logger.info(f"Author file: {args.authors}")
-    logger.info(f"Data directory: {args.data}")
-    
+
+    # Setup logger
+    logger = setup_logger(args.log_level)
+
+    # Resolve paths
+    catalog_path = os.path.abspath(args.catalog)
+    data_dir = os.path.abspath(args.data_dir) if args.data_dir else None
+
+    logger.info(f"Starting validation of catalog: {catalog_path}")
+    if data_dir:
+        logger.info(f"Will check file existence in data directory: {data_dir}")
+
     # Validate the catalog
-    try:
-        service = CatalogService(args.catalog, args.authors, args.data)
-        results = service.validate_catalog_files()
-        
-        # Display results
-        formatted_results = format_results(results, args.missing_only)
-        print(formatted_results)
-        
-        # Write results to file if requested
-        if args.output:
-            with open(args.output, "w", encoding="utf-8") as f:
-                json.dump(results, f, indent=2)
-            logger.info(f"Validation results written to {args.output}")
-        
-        # Set exit code based on validity
-        sys.exit(0 if results["validity"] else 1)
-    
-    except Exception as e:
-        logger.error(f"Error during validation: {e}")
-        sys.exit(2)
+    is_valid, errors = validate_catalog(catalog_path, data_dir)
+
+    if is_valid:
+        logger.info("Catalog validation completed successfully.")
+        return 0
+    else:
+        logger.error(f"Catalog validation failed with {len(errors)} errors.")
+        return 1
 
 
 if __name__ == "__main__":
-    main() 
+    sys.exit(main())
