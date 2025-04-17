@@ -4,10 +4,8 @@ import logging
 from functools import lru_cache
 
 from app.config import EulogosSettings
-from app.services.catalog_service_adapter import CatalogServiceAdapter
 from app.services.enhanced_catalog_service import EnhancedCatalogService
 from app.services.enhanced_xml_service import EnhancedXMLService
-from app.services.xml_processor_adapter import XMLProcessorServiceAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +18,14 @@ def get_settings() -> EulogosSettings:
 
 
 @lru_cache()
-def get_enhanced_catalog_service() -> EnhancedCatalogService:
-    """Get an EnhancedCatalogService instance, cached for performance."""
+def get_catalog_service() -> EnhancedCatalogService:
+    """Get an EnhancedCatalogService instance, cached for performance.
+
+    This is the primary catalog service for the application.
+
+    Returns:
+        EnhancedCatalogService instance
+    """
     logger.debug("Creating EnhancedCatalogService instance")
     settings = get_settings()
     service = EnhancedCatalogService(settings=settings)
@@ -33,34 +37,31 @@ def get_enhanced_catalog_service() -> EnhancedCatalogService:
 
 
 @lru_cache()
-def get_enhanced_xml_service() -> EnhancedXMLService:
-    """Get an EnhancedXMLService instance, cached for performance."""
+def get_xml_processor_service() -> EnhancedXMLService:
+    """Get an EnhancedXMLService instance, cached for performance.
+
+    This is the primary XML service for the application.
+
+    Returns:
+        EnhancedXMLService instance
+    """
     logger.debug("Creating EnhancedXMLService instance")
-    catalog_service = get_enhanced_catalog_service()
+    catalog_service = get_catalog_service()
     settings = get_settings()
     return EnhancedXMLService(catalog_service=catalog_service, settings=settings)
 
 
+# Legacy function aliases - preserved for backward compatibility references only
+# These will be removed in a future version
 @lru_cache()
-def get_catalog_service() -> CatalogServiceAdapter:
-    """Get a CatalogServiceAdapter instance for backward compatibility.
-
-    Returns:
-        CatalogServiceAdapter instance that wraps EnhancedCatalogService
-    """
-    logger.debug("Creating CatalogServiceAdapter instance")
-    enhanced_service = get_enhanced_catalog_service()
-    return CatalogServiceAdapter(enhanced_service=enhanced_service)
+def get_enhanced_catalog_service() -> EnhancedCatalogService:
+    """Get catalog service (legacy alias, use get_catalog_service instead)."""
+    logger.warning("get_enhanced_catalog_service() is deprecated, use get_catalog_service() instead")
+    return get_catalog_service()
 
 
 @lru_cache()
-def get_xml_processor_service() -> XMLProcessorServiceAdapter:
-    """Get a XMLProcessorServiceAdapter instance for backward compatibility.
-
-    Returns:
-        XMLProcessorServiceAdapter instance
-    """
-    logger.debug("Creating XMLProcessorServiceAdapter instance")
-    catalog_service = get_enhanced_catalog_service()
-    xml_service = get_enhanced_xml_service()
-    return XMLProcessorServiceAdapter(enhanced_service=xml_service, catalog_service=catalog_service)
+def get_enhanced_xml_service() -> EnhancedXMLService:
+    """Get XML service (legacy alias, use get_xml_processor_service instead)."""
+    logger.warning("get_enhanced_xml_service() is deprecated, use get_xml_processor_service() instead")
+    return get_xml_processor_service()

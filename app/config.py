@@ -30,12 +30,12 @@ class EulogosSettings(BaseSettings):
     enable_caching: bool = Field(default=True, description="Enable caching for XML documents")
 
     # Compatibility settings
-    compatibility_mode: bool = Field(default=True, description="Enable compatibility with existing code")
+    compatibility_mode: bool = Field(default=False, description="Enable compatibility with existing code")
 
     # API version settings
-    api_version: int = Field(default=1, description="Default API version (1 or 2)")
+    api_version: int = Field(default=2, description="Default API version (1 or 2)")
     enable_api_redirects: bool = Field(default=True, description="Enable automatic redirects from v1 to v2 API")
-    deprecate_v1_api: bool = Field(default=False, description="Add deprecation headers to v1 API responses")
+    deprecate_v1_api: bool = Field(default=True, description="Add deprecation headers to v1 API responses")
     v1_sunset_date: Optional[str] = Field(
         default="2025-12-31", description="Sunset date for v1 API (ISO format, e.g., '2025-12-31')"
     )
