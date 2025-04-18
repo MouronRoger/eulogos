@@ -209,29 +209,33 @@ class TestXMLProcessorService:
         """Test URN resolution using catalog service."""
         processor = XMLProcessorService("test_data", catalog_service=mock_catalog_service)
         urn = URN("urn:cts:greekLit:tlg0012.tlg001.perseus-grc1")
-        expected_path = Path("test_data/some/path.xml")
 
-        # Mock catalog service response
-        mock_catalog_service.get_text_by_urn.return_value = Mock(path="some/path.xml")
+        # Mock catalog service to return text with path
+        mock_text = Mock(path="some/path.xml")
+        mock_catalog_service.get_text_by_urn.return_value = mock_text
 
         # Test resolution
         result = processor.resolve_urn_to_file_path(urn)
-        assert result == expected_path
+        expected = Path("test_data/some/path.xml")
+        assert result == expected
+
+        # Verify catalog service was called correctly
         mock_catalog_service.get_text_by_urn.assert_called_once_with(urn.value)
 
     def test_resolve_urn_fallback(self, mock_catalog_service):
-        """Test URN resolution fallback when catalog fails."""
+        """Test URN resolution when text not found in catalog."""
         processor = XMLProcessorService("test_data", catalog_service=mock_catalog_service)
         urn = URN("urn:cts:greekLit:tlg0012.tlg001.perseus-grc1")
 
-        # Mock catalog service to return None
+        # Mock catalog service to return None (text not found)
         mock_catalog_service.get_text_by_urn.return_value = None
-        mock_catalog_service.get_path_by_urn.return_value = None
 
-        # Test fallback resolution
-        result = processor.resolve_urn_to_file_path(urn)
-        expected = Path("test_data/tlg0012/tlg001/tlg0012.tlg001.perseus-grc1.xml")
-        assert result == expected
+        # Test resolution - should raise FileNotFoundError
+        with pytest.raises(FileNotFoundError) as excinfo:
+            processor.resolve_urn_to_file_path(urn)
+            
+        assert "not found in catalog" in str(excinfo.value)
+        mock_catalog_service.get_text_by_urn.assert_called_once_with(urn.value)
 
     def test_resolve_urn_invalid(self, xml_processor):
         """Test URN resolution with invalid URN."""

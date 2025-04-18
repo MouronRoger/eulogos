@@ -100,10 +100,31 @@ async def browse_texts(
     # Sort authors by name
     result_authors.sort(key=lambda a: a["name"])
 
-    # Render the template
+    # If this is an HTMX request, return just the author list
+    if "HX-Request" in request.headers:
+        return templates.TemplateResponse(
+            "partials/author_list.html",
+            {
+                "request": request,
+                "authors": result_authors,
+                "show": show,
+                "era": era,
+                "search": search,
+                "author_count": len(result_authors)
+            },
+        )
+
+    # Otherwise return the full browse page
     return templates.TemplateResponse(
-        "partials/author_works_tree.html",
-        {"request": request, "authors": result_authors, "show": show, "era": era, "search": search},
+        "browse.html",
+        {
+            "request": request,
+            "authors": result_authors,
+            "show": show,
+            "era": era,
+            "search": search,
+            "author_count": len(result_authors)
+        },
     )
 
 

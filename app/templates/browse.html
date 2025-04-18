@@ -1,124 +1,195 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eulogos - Browse Texts</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            line-height: 1.5;
-            margin: 0;
-            padding: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        h1, h2, h3 {
-            margin-top: 1em;
-            color: #333;
-        }
-        .author {
-            margin-bottom: 1.5em;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 1em;
-        }
-        .work {
-            margin-left: 20px;
-            margin-bottom: 1em;
-        }
-        .editions, .translations {
-            margin-left: 40px;
-        }
-        .edition, .translation {
-            margin-bottom: 0.5em;
-        }
-        .path {
-            font-family: monospace;
-            color: #666;
-            font-size: 0.9em;
-        }
-        .meta {
-            color: #888;
-            font-size: 0.9em;
-        }
-        .info {
-            font-style: italic;
-            color: #555;
-        }
-        a {
-            color: #0066cc;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        .xml-link {
-            display: inline-block;
-            margin-top: 5px;
-            background: #f0f8ff;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 0.85em;
-        }
-    </style>
-</head>
-<body>
-    <h1>Eulogos Text Browser</h1>
-    <p class="info">Showing {{ author_count }} authors with works from the integrated catalog</p>
+{% extends "base.html" %}
 
-    {% for author in authors %}
-    <div class="author">
-        <h2>{{ author.name }}
-            <span class="meta">({{ author.id }}{% if author.century %}, {{ author.century }} century{% endif %}{% if author.type %}, {{ author.type }}{% endif %})</span>
-        </h2>
+{% block title %}Browse Texts - Eulogos{% endblock %}
 
-        {% for work in author.works %}
-        <div class="work">
-            <h3>{{ work.title }} <span class="meta">({{ work.id }})</span></h3>
-
-            {% if work.editions %}
-            <div class="editions">
-                <h4>Editions:</h4>
-                {% for edition in work.editions %}
-                <div class="edition">
-                    <p>
-                        <strong>{{ edition.label }}</strong>
-                        <span class="meta">({{ edition.id }}, {{ edition.language }})</span>
-                        <br>
-                        <span class="path">{{ edition.path }}</span>
-                        <br>
-                        <a href="/data/{{ edition.path }}" class="xml-link">View XML</a>
-                    </p>
+{% block content %}
+<div class="flex space-x-6">
+    <!-- Filtering sidebar -->
+    <div class="w-64 flex-shrink-0">
+        <div class="bg-white shadow rounded-lg p-4">
+            <h2 class="text-lg font-semibold mb-4">Filters</h2>
+            
+            <!-- Era filter -->
+            <div class="mb-4">
+                <h3 class="font-medium text-gray-700 mb-2">Era</h3>
+                <div class="space-y-2">
+                    {% for era in ['Pre-Socratic', 'Hellenistic', 'Imperial', 'Late Antiquity'] %}
+                    <label class="flex items-center">
+                        <input
+                            type="checkbox"
+                            name="era"
+                            value="{{ era|lower }}"
+                            class="rounded text-blue-600"
+                            hx-get="/api/v2/browse"
+                            hx-trigger="change"
+                            hx-target="#author-list"
+                            hx-include="[name='era']"
+                        >
+                        <span class="ml-2 text-sm text-gray-700">{{ era }}</span>
+                    </label>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
-            {% endif %}
 
-            {% if work.translations %}
-            <div class="translations">
-                <h4>Translations:</h4>
-                {% for translation in work.translations %}
-                <div class="translation">
-                    <p>
-                        <strong>{{ translation.label }}</strong>
-                        <span class="meta">({{ translation.id }}, {{ translation.language }})</span>
-                        <br>
-                        <span class="path">{{ translation.path }}</span>
-                        <br>
-                        <a href="/data/{{ translation.path }}" class="xml-link">View XML</a>
-                    </p>
+            <!-- Status filter -->
+            <div class="mb-4">
+                <h3 class="font-medium text-gray-700 mb-2">Status</h3>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input
+                            type="radio"
+                            name="status"
+                            value="all"
+                            checked
+                            class="text-blue-600"
+                            hx-get="/api/v2/browse"
+                            hx-trigger="change"
+                            hx-target="#author-list"
+                        >
+                        <span class="ml-2 text-sm text-gray-700">All</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input
+                            type="radio"
+                            name="status"
+                            value="favorites"
+                            class="text-blue-600"
+                            hx-get="/api/v2/browse"
+                            hx-trigger="change"
+                            hx-target="#author-list"
+                        >
+                        <span class="ml-2 text-sm text-gray-700">Favorites</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input
+                            type="radio"
+                            name="status"
+                            value="archived"
+                            class="text-blue-600"
+                            hx-get="/api/v2/browse"
+                            hx-trigger="change"
+                            hx-target="#author-list"
+                        >
+                        <span class="ml-2 text-sm text-gray-700">Archived</span>
+                    </label>
                 </div>
-                {% endfor %}
             </div>
-            {% endif %}
         </div>
-        {% endfor %}
     </div>
-    {% endfor %}
 
-    <script>
-        // Log that the page loaded successfully
-        console.log('Browse page loaded with {{ author_count }} authors');
-    </script>
-</body>
-</html>
+    <!-- Author list -->
+    <div class="flex-grow">
+        <div id="author-list" class="space-y-6">
+            {% for author in authors %}
+            <div class="bg-white shadow rounded-lg p-6" x-data="{ expanded: false }">
+                <div class="flex items-center justify-between cursor-pointer" @click="expanded = !expanded">
+                    <h2 class="text-xl font-semibold text-gray-900">
+                        {{ author.name }}
+                        <span class="text-sm text-gray-500">
+                            ({{ author.id }}{% if author.century %}, {{ author.century }} century{% endif %}{% if author.type %}, {{ author.type }}{% endif %})
+                        </span>
+                    </h2>
+                    <svg
+                        class="w-6 h-6 text-gray-500 transform transition-transform"
+                        :class="{ 'rotate-180': expanded }"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+
+                <div x-show="expanded" x-collapse>
+                    {% for work in author.works %}
+                    <div class="mt-4 pl-4 border-l-2 border-gray-200">
+                        <div x-data="{ workExpanded: false }">
+                            <div class="flex items-center justify-between cursor-pointer" @click="workExpanded = !workExpanded">
+                                <h3 class="text-lg font-medium text-gray-900">
+                                    {{ work.title }}
+                                    <span class="text-sm text-gray-500">({{ work.id }})</span>
+                                </h3>
+                                <svg
+                                    class="w-5 h-5 text-gray-500 transform transition-transform"
+                                    :class="{ 'rotate-180': workExpanded }"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+
+                            <div x-show="workExpanded" x-collapse>
+                                {% if work.editions %}
+                                <div class="mt-2 pl-4">
+                                    <h4 class="text-sm font-medium text-gray-700">Editions:</h4>
+                                    {% for edition in work.editions %}
+                                    <div class="mt-2 p-2 bg-gray-50 rounded {% if edition.archived %}opacity-50{% endif %} {% if edition.favorite %}bg-yellow-50{% endif %}">
+                                        <div class="flex items-center justify-between">
+                                            <div>
+                                                <strong class="text-gray-900">{{ edition.label }}</strong>
+                                                <span class="text-sm text-gray-500">({{ edition.id }}, {{ edition.language }})</span>
+                                            </div>
+                                            <div class="flex space-x-2">
+                                                <a
+                                                    href="/read/{{ edition.id }}"
+                                                    class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                                                >
+                                                    Read
+                                                </a>
+                                                <a
+                                                    href="/data/{{ edition.path }}"
+                                                    class="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
+                                                    target="_blank"
+                                                >
+                                                    XML
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                {% if work.translations %}
+                                <div class="mt-4 pl-4">
+                                    <h4 class="text-sm font-medium text-gray-700">Translations:</h4>
+                                    {% for translation in work.translations %}
+                                    <div class="mt-2 p-2 bg-gray-50 rounded {% if translation.archived %}opacity-50{% endif %} {% if translation.favorite %}bg-yellow-50{% endif %}">
+                                        <div class="flex items-center justify-between">
+                                            <div>
+                                                <strong class="text-gray-900">{{ translation.label }}</strong>
+                                                <span class="text-sm text-gray-500">({{ translation.id }}, {{ translation.language }})</span>
+                                            </div>
+                                            <div class="flex space-x-2">
+                                                <a
+                                                    href="/read/{{ translation.id }}"
+                                                    class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                                                >
+                                                    Read
+                                                </a>
+                                                <a
+                                                    href="/data/{{ translation.path }}"
+                                                    class="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
+                                                    target="_blank"
+                                                >
+                                                    XML
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

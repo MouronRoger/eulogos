@@ -399,7 +399,7 @@ class CatalogService:
         return True
 
     def validate_catalog_files(self) -> Dict:
-        """Validate synchronization between catalog data and files.
+        """Validate synchronization between actual files and catalog data.
 
         Returns:
             Dictionary with validation results
@@ -410,141 +410,72 @@ class CatalogService:
         if self._author_data is None:
             self.load_authors()
 
+        # Find all actual XML files in the data directory
+        all_xml_files = set(str(p.relative_to(self.data_dir)) for p in self.data_dir.glob("**/*.xml"))
+        
+        # Get all paths from catalog
+        catalog_paths = {entry.get("path", "") for entry in self._catalog_data.get("catalog", [])}
+
         # Statistics
         stats = {
-            "total_catalog_entries": len(self._catalog_data.get("catalog", [])),
-            "total_authors": len(self._author_data),
-            "missing_files": 0,
-            "missing_authors": 0,
-            "unlisted_files": 0,
+            "total_files": len(all_xml_files),
+            "files_in_catalog": len(catalog_paths),
+            "uncatalogued_files": len(all_xml_files - catalog_paths),
+            "invalid_catalog_entries": len(catalog_paths - all_xml_files),
         }
 
         # Track issues
-        missing_files = []
-        textgroups_without_authors = set()
-
-        # Check each catalog entry for corresponding file
-        for entry in self._catalog_data.get("catalog", []):
-            urn = entry.get("urn", "")
-            if not urn:
-                continue
-
-            # Parse URN
-            try:
-                parts = urn.split(":")
-                if len(parts) >= 4:
-                    namespace = parts[2]
-                    identifier = parts[3].split(":")[0]
-                    id_parts = identifier.split(".")
-
-                    if len(id_parts) >= 3:
-                        textgroup = id_parts[0]
-                        work = id_parts[1]
-                        version = id_parts[2]
-
-                        # Check if author exists
-                        if textgroup not in self._author_data:
-                            textgroups_without_authors.add(textgroup)
-
-                        # Construct expected file path
-                        file_path = self.data_dir / namespace / textgroup / work / f"{textgroup}.{work}.{version}.xml"
-
-                        # Check if file exists
-                        if not file_path.exists():
-                            missing_files.append((urn, str(file_path)))
-            except Exception as e:
-                logger.error(f"Error parsing URN {urn}: {e}")
-
-        # Check for unlisted files
-        all_xml_files = list(self.data_dir.glob("**/*.xml"))
-        known_urns = [entry.get("urn", "") for entry in self._catalog_data.get("catalog", [])]
-
-        for xml_file in all_xml_files:
-            # Try to derive URN from file path
-            try:
-                relative_path = xml_file.relative_to(self.data_dir)
-                parts = list(relative_path.parts)
-
-                if len(parts) >= 4 and parts[3].endswith(".xml"):
-                    file_name = parts[3].replace(".xml", "")
-                    name_parts = file_name.split(".")
-
-                    if len(name_parts) >= 3:
-                        textgroup = name_parts[0]
-                        work = name_parts[1]
-                        version = name_parts[2]
-                        namespace = parts[0]
-
-                        # Construct URN
-                        urn = f"urn:cts:{namespace}:{textgroup}.{work}.{version}"
-
-                        # Check if in catalog
-                        if urn not in known_urns and not any(
-                            known_urn.startswith(urn + ":") for known_urn in known_urns
-                        ):
-                            # This file is not in the catalog
-                            stats["unlisted_files"] += 1
-            except Exception as e:
-                logger.error(f"Error processing file {xml_file}: {e}")
-
-        # Update statistics
-        stats["missing_files"] = len(missing_files)
-        stats["missing_authors"] = len(textgroups_without_authors)
+        uncatalogued_files = list(all_xml_files - catalog_paths)
+        invalid_entries = list(catalog_paths - all_xml_files)
 
         # Return validation results
         return {
             "stats": stats,
-            "missing_files": missing_files,
-            "textgroups_without_authors": list(textgroups_without_authors),
-            "validity": stats["missing_files"] == 0 and stats["missing_authors"] == 0,
+            "uncatalogued_files": uncatalogued_files,
+            "invalid_catalog_entries": invalid_entries,
+            "validity": len(uncatalogued_files) == 0 and len(invalid_entries) == 0
         }
 
     def _validate_paths(self) -> None:
-        """Validate and fix paths in the unified catalog.
+        """Validate paths in the unified catalog.
 
-        This ensures all texts have a valid path field either from the catalog
-        or derived from the URN structure.
+        This ensures all texts have a valid path field from the catalog.
         """
         if not self._unified_catalog:
             return
 
         for text in self._unified_catalog.catalog:
-            # If text has no path, generate one from URN
+            # Log warning if text has no path from catalog
             if not text.path:
-                # Use the URN model to generate a path
-                try:
-                    from app.models.urn import URN
+                logger.warning(f"Text {text.urn} has no path in catalog")
+                continue
 
-                    urn_obj = URN(value=text.urn)
-
-                    # Generate standard path using URN components
-                    if urn_obj.textgroup and urn_obj.work and urn_obj.version:
-                        path_components = [
-                            urn_obj.textgroup,
-                            urn_obj.work,
-                            f"{urn_obj.textgroup}.{urn_obj.work}.{urn_obj.version}.xml",
-                        ]
-                        text.path = "/".join(path_components)
-                        logger.warning(f"Generated path for {text.urn}: {text.path}")
-                except Exception as e:
-                    logger.error(f"Failed to generate path for {text.urn}: {e}")
-
-            # Optionally validate that the path exists on disk
-            if text.path:
-                file_path = self.data_dir / text.path
-                if not file_path.exists():
-                    logger.warning(f"Path does not exist for {text.urn}: {file_path}")
+            # Validate that the path exists on disk
+            file_path = self.data_dir / text.path
+            if not file_path.exists():
+                logger.warning(f"Path does not exist for {text.urn}: {file_path}")
 
     def get_path_by_urn(self, urn: str) -> Optional[str]:
-        """Get the file path for a text by URN.
-
+        """DEPRECATED: Do not use this method for path resolution.
+        
+        This method bypasses the canonical path resolution through text objects.
+        Use get_text_by_urn().path instead to ensure canonical path handling.
+        
         Args:
-            urn: The URN of the text
-
+            urn: URN string to look up
+            
         Returns:
-            The file path as a string, or None if not found
+            Optional path string if found
+            
+        Deprecated:
+            This method will be removed in a future version.
+            All path resolution should go through text objects via get_text_by_urn().
         """
+        logger.warning(
+            "DEPRECATED: get_path_by_urn() called - use get_text_by_urn().path instead "
+            "to ensure canonical path handling"
+        )
         text = self.get_text_by_urn(urn)
-        if text and text.path:
+        if text and hasattr(text, "path"):
             return text.path
         return None

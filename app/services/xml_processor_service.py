@@ -41,7 +41,7 @@ class XMLProcessorService:
         logger.debug("Initialized XMLProcessorService with catalog_service and data_path={}", data_path)
 
     def resolve_urn_to_file_path(self, urn_obj: URN) -> Path:
-        """Resolve URN to file path using catalog as source of truth.
+        """Resolve URN to file path using catalog text object as sole source of truth.
 
         Args:
             urn_obj: URN object
@@ -52,20 +52,16 @@ class XMLProcessorService:
         Raises:
             FileNotFoundError: If the catalog doesn't contain the URN or path is invalid
         """
-        # Get text by URN
+        # Get text by URN - this is the ONLY canonical source for paths
         text = self.catalog_service.get_text_by_urn(urn_obj.value)
-        if text and hasattr(text, "path") and text.path:
-            # Return absolute path
-            return Path(self.data_path) / text.path
-
-        # Try getting path directly from catalog service
-        path = self.catalog_service.get_path_by_urn(urn_obj.value)
-        if path:
-            return Path(self.data_path) / path
-
-        raise FileNotFoundError(
-            f"URN {urn_obj.value} not found in catalog. All paths must be resolved through the catalog."
-        )
+        if not text or not hasattr(text, "path") or not text.path:
+            raise FileNotFoundError(
+                f"URN {urn_obj.value} not found in catalog or has no valid path. "
+                "All paths must be resolved through the catalog text objects."
+            )
+            
+        # Return absolute path from the canonical source
+        return Path(self.data_path) / text.path
 
     def load_xml(self, urn_obj: URN) -> Element:
         """Load XML file based on URN.

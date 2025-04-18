@@ -414,9 +414,21 @@ class EnhancedExportService:
                 filename = f"{filename}.{extension}"
         else:
             # Generate filename from URN
-            filename = f"{urn_obj.textgroup}_{urn_obj.work}_{urn_obj.version}.{extension}"
+            filename = self._get_export_filename(text, extension)
 
         return Path(self.output_dir) / filename
+
+    def _get_export_filename(self, text: Text, extension: str) -> str:
+        """Get the export filename for a text.
+
+        Args:
+            text: The text to export
+            extension: The file extension
+
+        Returns:
+            The export filename
+        """
+        return f"{Path(text.path).stem}.{extension}"
 
     def _compress_file(self, input_path: str, compression: str, compression_level: Optional[int] = None) -> str:
         """

@@ -30,6 +30,35 @@ Eulogos is a web application for exploring, reading, and analyzing ancient Greek
 
 **If you find ANY code that attempts to reconstruct data paths by any means, it MUST be replaced with direct path access.** This is a fundamental architectural principle of this repository.
 
+## System Architecture
+
+### Data Flow
+```
+Actual files in filesystem
+        ↓
+canonical_catalog_builder.py
+        ↓
+integrated_catalog.json
+        ↓
+All other system operations
+```
+
+### Core Architectural Principle
+
+The `canonical_catalog_builder.py` is the **only** component that should ever:
+- Scan the filesystem for files
+- Generate path mappings
+- Create catalog structures
+- Build the relationship between paths and metadata
+
+Everything else in the system should:
+- Read from `integrated_catalog.json`
+- Never try to construct or derive paths
+- Never try to build alternative catalogs
+- Use the catalog as the authoritative source for all lookups
+
+This is a fundamental architectural principle of the system. The catalog builder creates the single source of truth (`integrated_catalog.json`) from which all other operations must derive their data. No other part of the system should attempt to replicate these responsibilities.
+
 ## Core Architecture
 
 The repository is built around three essential components:

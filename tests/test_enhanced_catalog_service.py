@@ -271,3 +271,35 @@ def test_build_indexes(test_settings):
     assert "grc" in service._texts_by_language
     urns = service._texts_by_language["grc"]
     assert "urn:cts:greekLit:tlg0012.tlg001.perseus-grc1" in urns
+
+
+def test_get_text_by_urn_with_path(test_settings):
+    """Test getting text by URN with path access."""
+    service = EnhancedCatalogService(settings=test_settings)
+    service.load_catalog()
+
+    # Test with string URN
+    text = service.get_text_by_urn("urn:cts:greekLit:tlg0012.tlg001.perseus-grc1")
+    assert text is not None
+    assert text.urn == "urn:cts:greekLit:tlg0012.tlg001.perseus-grc1"
+    assert text.path == "tlg0012/tlg001/tlg0012.tlg001.perseus-grc1.xml"
+
+    # Test non-existent URN
+    text = service.get_text_by_urn("urn:cts:greekLit:tlg0012.tlg002.perseus-grc1")
+    assert text is None
+
+
+@pytest.mark.deprecated
+def test_get_path_by_urn_deprecated(test_settings):
+    """Test that get_path_by_urn is properly deprecated."""
+    service = EnhancedCatalogService(settings=test_settings)
+    service.load_catalog()
+
+    # Test that warning is issued
+    with pytest.warns(UserWarning, match="DEPRECATED: get_path_by_urn()"):
+        path = service.get_path_by_urn("urn:cts:greekLit:tlg0012.tlg001.perseus-grc1")
+        assert path == "tlg0012/tlg001/tlg0012.tlg001.perseus-grc1.xml"
+
+    # Verify that get_text_by_urn().path is the recommended way
+    text = service.get_text_by_urn("urn:cts:greekLit:tlg0012.tlg001.perseus-grc1")
+    assert text.path == path

@@ -14,59 +14,87 @@ class Author(BaseModel):
     id: Optional[str] = None  # Author ID (typically the textgroup)
 
 
-class Text(BaseModel):
-    """Text model with author reference."""
+class Text:
+    """Model for a text in the catalog."""
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
+    def __init__(
+        self,
+        urn: str,
+        group_name: str,
+        work_name: str,
+        language: str,
+        wordcount: int,
+        author_id: str,
+        path: Optional[str] = None,
+        archived: bool = False,
+        favorite: bool = False,
+    ):
+        """Initialize a text.
 
-    urn: str
-    group_name: str
-    work_name: str
-    language: str
-    wordcount: int
-    scaife: Optional[str] = None
-    author_id: Optional[str] = None
-    archived: bool = False  # Flag for archived texts
-    favorite: bool = False  # Flag for favorite texts
-    path: Optional[str] = None  # Path to the XML file (relative to data directory)
+        Args:
+            urn: The URN of the text
+            group_name: The name of the text group
+            work_name: The name of the work
+            language: The language of the text
+            wordcount: The word count of the text
+            author_id: The ID of the author
+            path: The path to the text file from catalog
+            archived: Whether the text is archived
+            favorite: Whether the text is favorited
+        """
+        self.urn = urn
+        self.group_name = group_name
+        self.work_name = work_name
+        self.language = language
+        self.wordcount = wordcount
+        self.author_id = author_id
+        self.path = path
+        self.archived = archived
+        self.favorite = favorite
 
-    # Derived fields (not stored in JSON)
-    namespace: Optional[str] = Field(None, exclude=True)
-    textgroup: Optional[str] = Field(None, exclude=True)
-    work_id: Optional[str] = Field(None, exclude=True)
-    version: Optional[str] = Field(None, exclude=True)
-
-    @field_validator("urn")
     @classmethod
-    def parse_urn(cls, v, info):
-        """Extract URN components and generate default path if needed."""
-        try:
-            values = info.data
-            parts = v.split(":")
-            if len(parts) >= 4:
-                namespace = parts[2]
-                identifier = parts[3].split(":")[0]
-                id_parts = identifier.split(".")
+    def from_dict(cls, values: Dict[str, Any]) -> "Text":
+        """Create a text from a dictionary.
 
-                if len(id_parts) >= 3:
-                    textgroup = id_parts[0]
-                    work_id = id_parts[1]
-                    version = id_parts[2]
+        Args:
+            values: Dictionary of values
 
-                    # Set values in the model
-                    values["namespace"] = namespace
-                    values["textgroup"] = textgroup
-                    values["work_id"] = work_id
-                    values["version"] = version
+        Returns:
+            A Text object
+        """
+        # Path must come from catalog
+        if "path" not in values:
+            logger.warning(f"No path provided in catalog for text {values.get('urn', 'unknown')}")
 
-                    # If path is not set and we have enough components, generate a default path
-                    if "path" not in values or not values.get("path"):
-                        values["path"] = f"{textgroup}/{work_id}/{textgroup}.{work_id}.{version}.xml"
-        except Exception:
-            # If parsing fails, just return the URN as is
-            pass
+        return cls(
+            urn=values["urn"],
+            group_name=values["group_name"],
+            work_name=values["work_name"],
+            language=values["language"],
+            wordcount=values["wordcount"],
+            author_id=values["author_id"],
+            path=values.get("path"),  # Path must come from catalog
+            archived=values.get("archived", False),
+            favorite=values.get("favorite", False),
+        )
 
-        return v
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert text to dictionary.
+
+        Returns:
+            Dictionary representation of the text
+        """
+        return {
+            "urn": self.urn,
+            "group_name": self.group_name,
+            "work_name": self.work_name,
+            "language": self.language,
+            "wordcount": self.wordcount,
+            "author_id": self.author_id,
+            "path": self.path,  # Path from catalog
+            "archived": self.archived,
+            "favorite": self.favorite,
+        }
 
 
 class CatalogStatistics(BaseModel):

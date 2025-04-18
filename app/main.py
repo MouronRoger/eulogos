@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
@@ -104,7 +105,13 @@ async def root(request: Request):
     authors.sort(key=lambda x: x["name"])
 
     return templates.TemplateResponse(
-        "browse.html", {"request": request, "authors": authors, "author_count": len(authors)}
+        "browse.html",
+        {
+            "request": request,
+            "authors": authors,
+            "author_count": len(authors),
+            "current_year": datetime.now().year,
+        },
     )
 
 
