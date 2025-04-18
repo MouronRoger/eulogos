@@ -1,7 +1,5 @@
-"""Model classes for the Eulogos API."""
+"""Models package for Eulogos."""
 
-from app.models.catalog import Author, Text, UnifiedCatalog
-from app.models.simple_urn import SimpleURN
-from app.models.xml_document import XMLDocument
+from app.models.catalog import Author, CatalogStatistics, Text, UnifiedCatalog
 
-__all__ = ["Author", "Text", "UnifiedCatalog", "SimpleURN", "XMLDocument"]
+__all__ = ["Author", "Text", "CatalogStatistics", "UnifiedCatalog"]

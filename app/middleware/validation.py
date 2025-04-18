@@ -14,7 +14,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 from fastapi import HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from app.models.simple_urn import SimpleURN
+from app.models.enhanced_urn import EnhancedURN
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ class ValidationMiddleware:
             path_params = request.path_params
             if "urn" in path_params:
                 try:
-                    SimpleURN(value=path_params["urn"])
+                    EnhancedURN(value=path_params["urn"])
                 except ValueError as e:
                     raise HTTPException(status_code=400, detail=f"Invalid URN format: {str(e)}")
 
@@ -110,10 +110,10 @@ class RequestValidators:
     """Collection of request validators."""
 
     @staticmethod
-    def validate_urn(urn: str) -> SimpleURN:
+    def validate_urn(urn: str) -> EnhancedURN:
         """Validate URN format."""
         try:
-            return SimpleURN(value=urn)
+            return EnhancedURN(value=urn)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"Invalid URN format: {str(e)}")
 
@@ -131,7 +131,7 @@ class RequestValidators:
         validated_urns = []
         for urn in urns:
             try:
-                validated_urns.append(SimpleURN(value=urn))
+                validated_urns.append(EnhancedURN(value=urn))
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=f"Invalid URN format for {urn}: {str(e)}")
 

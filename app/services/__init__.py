@@ -1,5 +1,5 @@
 """Services package for Eulogos."""
 
-from app.services.simple_catalog_service import SimpleCatalogService
+from app.services.catalog_service import CatalogService
 
-__all__ = ["SimpleCatalogService"]
+__all__ = ["CatalogService"]

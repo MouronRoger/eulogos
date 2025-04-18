@@ -3,12 +3,10 @@
 from pathlib import Path
 from typing import Optional
 
-from app.services.simple_catalog_service import SimpleCatalogService
+from app.services.catalog_service import CatalogService
 
 
-def resolve_urn_to_path(
-    urn: str, catalog_service: Optional[SimpleCatalogService] = None, data_path: str = "data"
-) -> Path:
+def resolve_urn_to_path(urn: str, catalog_service: Optional[CatalogService] = None, data_path: str = "data") -> Path:
     """Resolve a URN to a file path through direct transformation.
 
     Simple URN to file path transformation:
@@ -16,7 +14,7 @@ def resolve_urn_to_path(
 
     Args:
         urn: The URN to resolve as a string
-        catalog_service: Optional SimpleCatalogService (used if path is in catalog)
+        catalog_service: Optional catalog service (used if path is in catalog)
         data_path: Base path for data files
 
     Returns:
@@ -26,7 +24,9 @@ def resolve_urn_to_path(
 
     # Try catalog first if available
     if catalog_service:
-        return catalog_service.resolve_urn_to_path(urn)
+        text = catalog_service.get_text_by_urn(urn)
+        if text and text.path:
+            return data_path_obj / text.path
 
     # Direct URN to path transformation
     parts = urn.split(":")
