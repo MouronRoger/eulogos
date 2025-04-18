@@ -7,13 +7,13 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.dependencies import get_catalog_service, get_xml_service as get_xml_processor
-from app.services.enhanced_xml_service import EnhancedXMLService
+from app.services.xml_processor_service import XMLProcessorService
 
 
 @pytest.fixture
 def mock_xml_processor():
     """Create a mock XMLProcessorService."""
-    processor = MagicMock(spec=EnhancedXMLService)
+    processor = MagicMock(spec=XMLProcessorService)
 
     # Mock load_xml to return a mock XML root
     processor.load_document.return_value = MagicMock()

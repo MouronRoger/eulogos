@@ -11,6 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
+from app.routers import reader
+
 # Set up the application
 app = FastAPI(
     title="Eulogos API",
@@ -20,6 +22,9 @@ app = FastAPI(
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
 )
+
+# Include routers
+app.include_router(reader.router)
 
 # Set up static files and templates
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "app/static")

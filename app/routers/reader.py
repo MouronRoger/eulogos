@@ -8,15 +8,17 @@ This module provides enhanced endpoints for text reading functionality including
 - Token-level text processing
 """
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from loguru import logger
 
 from app.dependencies import get_catalog_service, get_xml_service
 from app.services.catalog_service import CatalogService
-from app.services.enhanced_xml_service import EnhancedXMLService
+from app.services.xml_processor_service import XMLProcessorService
+from app.models.catalog import Author
 
 # Templates
 templates = Jinja2Templates(directory="app/templates")
@@ -35,7 +37,7 @@ async def read_text(
     text_id: str = Path(..., description="Text ID"),
     reference: Optional[str] = Query(None, description="Optional reference to navigate to"),
     catalog_service: CatalogService = Depends(get_catalog_service),
-    xml_service: EnhancedXMLService = Depends(get_xml_service),
+    xml_service: XMLProcessorService = Depends(get_xml_service),
 ):
     """Read a text with optional reference.
 
@@ -71,16 +73,28 @@ async def read_text(
         # Get author if available
         author = None
         if text.author_id:
-            for a in catalog_service.get_all_authors():
-                if a.id == text.author_id:
-                    author = a
+            authors = catalog_service.get_all_authors()
+            for author_candidate in authors:
+                # Handle both Author objects and dictionaries
+                author_id = author_candidate.id if isinstance(author_candidate, Author) else author_candidate.get("id")
+                if author_id == text.author_id:
+                    # Convert dictionary to Author object if needed
+                    if not isinstance(author_candidate, Author):
+                        author = Author(
+                            name=author_candidate.get("name", "Unknown"),
+                            century=author_candidate.get("century", 0),
+                            type=author_candidate.get("type", "unknown"),
+                            id=author_candidate.get("id")
+                        )
+                    else:
+                        author = author_candidate
                     break
 
         # Render the template with the processed content
         return templates.TemplateResponse(
+            request,
             "reader.html",
             {
-                "request": request,
                 "text": text,
                 "author": author,
                 "content": html_content,
@@ -98,7 +112,7 @@ async def read_text(
 async def get_document(
     text_id: str = Path(..., description="Text ID"),
     catalog_service: CatalogService = Depends(get_catalog_service),
-    xml_service: EnhancedXMLService = Depends(get_xml_service),
+    xml_service: XMLProcessorService = Depends(get_xml_service),
 ):
     """Get document structure for a text.
 
@@ -129,9 +143,22 @@ async def get_document(
         # Convert to a list of reference objects
         ref_list = []
         for ref, element in references.items():
+            # Safely extract text content
+            try:
+                text_content = element.text or ""
+                for child in element:
+                    if child.tail:
+                        text_content += child.tail
+            except AttributeError:
+                text_content = str(element)
+
+            # Truncate if needed
+            if len(text_content) > 100:
+                text_content = text_content[:100] + "..."
+
             ref_list.append({
                 "reference": ref,
-                "text": "".join(element.itertext())[:100] + "..." if len("".join(element.itertext())) > 100 else "".join(element.itertext()),
+                "text": text_content,
             })
         
         # Sort references
@@ -149,7 +176,7 @@ async def get_passage(
     text_id: str = Path(..., description="Text ID"),
     reference: str = Path(..., description="Reference string"),
     catalog_service: CatalogService = Depends(get_catalog_service),
-    xml_service: EnhancedXMLService = Depends(get_xml_service),
+    xml_service: XMLProcessorService = Depends(get_xml_service),
 ):
     """Get a specific passage from a text by reference.
 
@@ -189,9 +216,9 @@ async def get_passage(
         
         # Render the passage template
         return templates.TemplateResponse(
+            request,
             "partials/passage.html",
             {
-                "request": request,
                 "text": text,
                 "content": html_content,
                 "reference": reference,
@@ -208,7 +235,7 @@ async def get_passage(
 async def get_references(
     text_id: str = Path(..., description="Text ID"),
     catalog_service: CatalogService = Depends(get_catalog_service),
-    xml_service: EnhancedXMLService = Depends(get_xml_service),
+    xml_service: XMLProcessorService = Depends(get_xml_service),
 ):
     """Get all references for a text.
 

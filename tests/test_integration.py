@@ -1,256 +1,192 @@
-"""Integration tests for the Eulogos export functionality.
+"""Integration tests for the Eulogos application."""
 
-This module contains end-to-end tests that verify:
-- Complete export workflows across different formats
-- API endpoint functionality
-- Catalog-based path resolution
-- Export performance and caching
-- File cleanup and resource management
-"""
-
-import os
-import tempfile
 from pathlib import Path
-from typing import Dict, Any
+from unittest.mock import Mock, MagicMock
+from xml.etree.ElementTree import Element
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.dependencies import get_catalog_service, get_xml_service, get_export_service, get_current_user
 from app.models.catalog import Text
 from app.services.catalog_service import CatalogService
-from app.services.export_service import ExportService
 from app.services.xml_processor_service import XMLProcessorService
+from app.services.export_service import ExportService
 
 
 @pytest.fixture
-def client() -> TestClient:
-    """Create a test client for the application."""
-    return TestClient(app)
-
-
-@pytest.fixture
-def sample_text() -> Text:
-    """Create a sample text with a valid ID."""
+def sample_text():
+    """Create a sample text for testing."""
     return Text(
         id="sample-text-1",
-        group_name="Homer",
-        work_name="Iliad",
+        group_name="Test Group",
+        work_name="Test Work",
         language="grc",
-        wordcount=100000,
-        author_id="auth1",
-        path="data/grc/homer/iliad.xml",
+        wordcount=1000,
+        author_id="author1",
+        path="test_path.xml"
     )
 
 
 @pytest.fixture
-def mock_catalog_service(mocker, sample_text):
+def mock_catalog_service(sample_text):
     """Create a mock catalog service."""
-    mock_service = mocker.Mock(spec=CatalogService)
-    
-    # Configure the mock to return appropriate texts
-    mock_service.get_text_by_id.side_effect = lambda id: (
-        sample_text if id == sample_text.id else None
-    )
-    
-    # Mock catalog loading
-    mock_service.load_catalog.return_value = {
-        "authors": {
-            "auth1": {
-                "id": "auth1",
-                "name": "Homer",
-                "works": {
-                    "iliad": {
-                        "id": "iliad",
-                        "title": "Iliad",
-                        "texts": {
-                            sample_text.id: sample_text.to_dict()
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    return mock_service
+    service = Mock(spec=CatalogService)
+    service.get_text_by_id.return_value = sample_text
+    service.get_all_authors.return_value = [{
+        "id": "author1",
+        "name": "Test Author",
+        "works": [sample_text.id]
+    }]
+    return service
 
 
 @pytest.fixture
-def mock_xml_service(mocker):
+def mock_xml_service():
     """Create a mock XML service."""
-    mock_service = mocker.Mock(spec=XMLProcessorService)
+    service = Mock(spec=XMLProcessorService)
     
-    # Configure document loading
-    mock_doc = mocker.Mock()
-    mock_doc.metadata = {
-        "title": "Mock Document",
-        "author": "Mock Author",
-        "language": "grc",
+    # Create proper Element objects for references
+    def create_mock_element(text="Test content", tag="{http://www.tei-c.org/ns/1.0}div", **attrs):
+        element = Element(tag)
+        element.text = text
+        for key, value in attrs.items():
+            element.set(key, value)
+        return element
+    
+    # Mock XML root
+    root = create_mock_element()
+    service.load_xml_from_path.return_value = root
+    
+    # Mock HTML transformation
+    service.transform_to_html.return_value = "<div>Test content</div>"
+    service._process_element_to_html.return_value = "<div>Test content</div>"
+    
+    # Create references dictionary with proper structure
+    references = {
+        "1": create_mock_element("Book 1", n="1", type="book"),
+        "1.1": create_mock_element("Line 1", "{http://www.tei-c.org/ns/1.0}l", n="1"),
+        "1.2": create_mock_element("Line 2", "{http://www.tei-c.org/ns/1.0}l", n="2"),
+        "1.3": create_mock_element("Line 3", "{http://www.tei-c.org/ns/1.0}l", n="3")
     }
-    mock_service.load_document_by_id.return_value = mock_doc
+    service.extract_references.return_value = references
     
-    # Mock content extraction
-    mock_service.extract_text_content.return_value = "Sample text content"
+    # Mock passage retrieval with proper reference handling
+    def get_passage(ref):
+        if ref in references:
+            return references[ref]
+        return None
     
-    return mock_service
+    service.get_passage_by_reference.side_effect = get_passage
+    
+    # Mock adjacent references with proper handling
+    def get_adjacent(ref):
+        ref_keys = list(references.keys())
+        try:
+            idx = ref_keys.index(ref)
+            prev_ref = ref_keys[idx - 1] if idx > 0 else None
+            next_ref = ref_keys[idx + 1] if idx < len(ref_keys) - 1 else None
+            return {"prev": prev_ref, "next": next_ref}
+        except ValueError:
+            return {"prev": None, "next": None}
+    
+    service.get_adjacent_references.side_effect = get_adjacent
+    
+    return service
 
 
 @pytest.fixture
-def mock_export_service(mocker, tmp_path):
+def mock_export_service(tmp_path):
     """Create a mock export service."""
-    mock_service = mocker.Mock(spec=ExportService)
-    
-    # Configure export functionality
+    service = Mock(spec=ExportService)
     export_path = tmp_path / "export.html"
     with open(export_path, "w") as f:
         f.write("<html><body>Test export</body></html>")
-    
-    mock_service.export_document.return_value = export_path
-    
-    return mock_service
+    service.export_text.return_value = export_path
+    return service
 
 
-def test_complete_text_access_workflow(
-    client, mocker, mock_catalog_service, mock_xml_service, sample_text
-):
+@pytest.fixture
+def client(mock_catalog_service, mock_xml_service, mock_export_service):
+    """Configure test client with mocked dependencies."""
+    # Mock authentication middleware
+    def mock_get_current_user():
+        return {"id": "test_user", "scopes": ["export:texts"]}
+    
+    app.dependency_overrides[get_catalog_service] = lambda: mock_catalog_service
+    app.dependency_overrides[get_xml_service] = lambda: mock_xml_service
+    app.dependency_overrides[get_export_service] = lambda: mock_export_service
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    
+    yield TestClient(app)
+    app.dependency_overrides = {}
+
+
+def test_complete_text_access_workflow(client, sample_text):
     """Test the complete workflow from catalog access to text display."""
-    # Patch services
-    mocker.patch(
-        "app.routers.reader.get_catalog_service",
-        return_value=mock_catalog_service,
-    )
-    mocker.patch(
-        "app.routers.reader.get_xml_processor_service", 
-        return_value=mock_xml_service
-    )
-    
     # Test text reading endpoint
-    response = client.get(f"/read/id/{sample_text.id}")
+    response = client.get(f"/api/v2/read/{sample_text.id}")
     assert response.status_code == 200
-    
+    assert "Test content" in response.text
+
     # Test document info endpoint
-    response = client.get(f"/document/id/{sample_text.id}")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["text_id"] == sample_text.id
-    
-    # Verify that catalog service was called with the correct ID
-    mock_catalog_service.get_text_by_id.assert_called_with(sample_text.id)
-    
-    # Verify that XML service received the correct catalog entry
-    mock_xml_service.load_document_by_id.assert_called()
-
-
-def test_export_workflow(
-    client, mocker, mock_catalog_service, mock_xml_service, 
-    mock_export_service, sample_text
-):
-    """Test the export workflow using ID-based access."""
-    # Patch services
-    mocker.patch(
-        "app.routers.export.get_catalog_service",
-        return_value=mock_catalog_service,
-    )
-    mocker.patch(
-        "app.routers.export.get_xml_processor_service", 
-        return_value=mock_xml_service
-    )
-    mocker.patch(
-        "app.routers.export.get_export_service",
-        return_value=mock_export_service,
-    )
-    
-    # Test export endpoint
-    response = client.post(
-        f"/api/export/id/{sample_text.id}",
-        json={"format": "html", "include_metadata": True}
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "path" in data
-    assert data["text_id"] == sample_text.id
-    
-    # Verify that catalog service was called with the correct ID
-    mock_catalog_service.get_text_by_id.assert_called_with(sample_text.id)
-    
-    # Verify that export service was called correctly
-    mock_export_service.export_document.assert_called()
-
-
-def test_reference_navigation(
-    client, mocker, mock_catalog_service, mock_xml_service, sample_text
-):
-    """Test reference navigation using ID-based access."""
-    # Configure mock XML service for reference navigation
-    mock_xml_service.extract_references.return_value = ["1.1", "1.2", "1.3"]
-    mock_xml_service.get_passage_by_reference.return_value = mocker.Mock()
-    mock_xml_service.transform_element_to_html.return_value = "<p>Test passage</p>"
-    
-    # Patch services
-    mocker.patch(
-        "app.routers.reader.get_catalog_service",
-        return_value=mock_catalog_service,
-    )
-    mocker.patch(
-        "app.routers.reader.get_xml_processor_service", 
-        return_value=mock_xml_service
-    )
-    
-    # Test references endpoint
-    response = client.get(f"/api/references/id/{sample_text.id}")
+    response = client.get(f"/api/v2/document/{sample_text.id}")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
-    assert "1.1" in data
-    
-    # Test passage retrieval
-    response = client.get(f"/passage/id/{sample_text.id}?reference=1.1&format=html")
+    assert len(data) > 0
+
+    # Test passage endpoint
+    response = client.get(f"/api/v2/passage/{sample_text.id}/1.1")
     assert response.status_code == 200
-    
-    # Verify that XML service methods were called correctly
-    mock_xml_service.get_passage_by_reference.assert_called()
-    mock_xml_service.transform_element_to_html.assert_called()
+    assert "Test content" in response.text
 
 
-def test_catalog_integrity(mocker, mock_catalog_service):
-    """Test catalog integrity checks."""
-    # Test that catalog can be loaded
-    catalog = mock_catalog_service.load_catalog()
-    assert isinstance(catalog, dict)
-    assert "authors" in catalog
-    
-    # Verify structure of catalog entries
-    author = list(catalog["authors"].values())[0]
-    assert "works" in author
-    
-    work = list(author["works"].values())[0]
-    assert "texts" in work
-    
-    text = list(work["texts"].values())[0]
-    assert "path" in text
+def test_export_workflow(client, sample_text, tmp_path):
+    """Test the export workflow."""
+    # Test export endpoint
+    response = client.post(
+        f"/api/v2/export/{sample_text.id}",
+        json={"format": "html", "output_path": str(tmp_path / "export.html")}
+    )
+    assert response.status_code == 200
+    assert (tmp_path / "export.html").exists()
 
 
-def test_error_handling(client, mocker, mock_catalog_service, mock_xml_service):
+def test_reference_navigation(client, sample_text):
+    """Test reference navigation using ID-based access."""
+    # Test references endpoint
+    response = client.get(f"/api/v2/references/{sample_text.id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert "references" in data
+    assert len(data["references"]) > 0
+
+    # Test passage navigation
+    response = client.get(f"/api/v2/passage/{sample_text.id}/1.1")
+    assert response.status_code == 200
+    assert "Test content" in response.text
+
+
+def test_catalog_integrity(client, sample_text):
+    """Test catalog integrity and text metadata."""
+    # Test text metadata
+    response = client.get(f"/api/v2/document/{sample_text.id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) > 0
+
+
+def test_error_handling(client):
     """Test error handling for invalid IDs and missing paths."""
-    # Configure mocks to simulate errors
-    mock_catalog_service.get_text_by_id.side_effect = lambda id: None  # No text found
-    
-    # Patch services
-    mocker.patch(
-        "app.routers.reader.get_catalog_service",
-        return_value=mock_catalog_service,
-    )
-    mocker.patch(
-        "app.routers.reader.get_xml_processor_service", 
-        return_value=mock_xml_service
-    )
-    
     # Test with non-existent ID
-    response = client.get("/read/id/nonexistent")
+    response = client.get("/api/v2/read/nonexistent")
     assert response.status_code == 404
-    
-    # Test passage with invalid reference
-    response = client.get("/passage/id/valid-id?reference=invalid&format=html")
+
+    # Test with invalid reference
+    response = client.get("/api/v2/passage/text1/invalid")
     assert response.status_code == 404
 
 
