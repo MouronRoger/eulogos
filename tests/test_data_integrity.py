@@ -15,8 +15,8 @@ from typing import Dict, Any
 import pytest
 
 from app.models.catalog import Text
-from app.services.enhanced_catalog_service import EnhancedCatalogService
-from app.services.enhanced_xml_service import EnhancedXMLService
+from app.services.catalog_service import CatalogService
+from app.services.xml_processor_service import XMLProcessorService
 from app.config import EulogosSettings
 
 
@@ -170,7 +170,7 @@ def sample_xml_files(tmp_path) -> Dict[str, Path]:
 @pytest.fixture
 def mock_catalog_service(test_settings, sample_catalog_data, mocker):
     """Create a mocked catalog service with pre-loaded indexes."""
-    catalog_service = EnhancedCatalogService(settings=test_settings)
+    catalog_service = CatalogService(settings=test_settings)
     
     # Create mock text objects from the sample data
     text_objects = {}
@@ -309,7 +309,7 @@ def test_text_model_integrity():
 def test_xml_processor_path_resolution(test_settings, mock_catalog_service, sample_xml_files, mocker):
     """Test that the XML processor correctly uses catalog for path resolution."""
     # Create XML service that uses our mock catalog service
-    xml_service = EnhancedXMLService(catalog_service=mock_catalog_service, settings=test_settings)
+    xml_service = XMLProcessorService(catalog_service=mock_catalog_service, settings=test_settings)
     
     # Mock load_xml_from_path to prevent actual file loading but test path resolution
     mock_root = mocker.Mock()

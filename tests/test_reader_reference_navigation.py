@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.dependencies import get_catalog_service, get_xml_processor_service as get_xml_processor
+from app.dependencies import get_catalog_service, get_xml_service as get_xml_processor
 from app.services.enhanced_xml_service import EnhancedXMLService
 
 

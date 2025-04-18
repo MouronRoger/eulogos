@@ -4,6 +4,7 @@ This module provides centralized configuration management using Pydantic setting
 with support for environment variables and .env files.
 """
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional
 
@@ -71,3 +72,13 @@ class EulogosSettings(BaseSettings):
         Replaces the deprecated dict() method.
         """
         return {k: str(v) if isinstance(v, Path) else v for k, v in super().model_dump().items()}
+
+
+@lru_cache()
+def get_settings() -> EulogosSettings:
+    """Get a cached instance of the settings.
+    
+    Returns:
+        EulogosSettings: The application settings
+    """
+    return EulogosSettings()

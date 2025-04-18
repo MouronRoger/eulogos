@@ -11,10 +11,9 @@ from fastapi import FastAPI
 
 from app.models.catalog import Text
 from app.services.catalog_service import CatalogService
-from app.services.enhanced_catalog_service import EnhancedCatalogService
-from app.services.enhanced_xml_service import EnhancedXMLService
+from app.services.xml_processor_service import XMLProcessorService
 from app.main import app
-from app.dependencies import get_enhanced_catalog_service, get_enhanced_xml_service
+from app.dependencies import get_catalog_service, get_xml_service
 
 
 @pytest.fixture
@@ -26,7 +25,7 @@ def client():
 @pytest.fixture
 def mock_catalog_service(mocker):
     """Create a mock catalog service with sample texts."""
-    mock_service = mocker.Mock(spec=EnhancedCatalogService)
+    mock_service = mocker.Mock(spec=CatalogService)
     
     # Create sample texts
     sample_texts = {
@@ -68,12 +67,12 @@ def mock_catalog_service(mocker):
 @pytest.fixture
 def mock_xml_service(mocker):
     """Create a mock XML service."""
-    mock_service = mocker.Mock(spec=EnhancedXMLService)
+    mock_service = mocker.Mock(spec=XMLProcessorService)
     
     # Create a mock document
     mock_document = mocker.Mock()
     
-    # Configure the mock methods that actually exist in EnhancedXMLService
+    # Configure the mock methods that actually exist in XMLProcessorService
     
     # Mock load_xml_from_path
     def mock_load_xml_from_path(path):
@@ -137,12 +136,12 @@ def mock_xml_service(mocker):
 def app_with_mocks(monkeypatch, mock_catalog_service, mock_xml_service):
     """Configure app with mocked dependencies."""
     # Monkeypatch dependency functions to return our mocks
-    monkeypatch.setattr("app.dependencies.get_enhanced_catalog_service", lambda: mock_catalog_service)
-    monkeypatch.setattr("app.dependencies.get_enhanced_xml_service", lambda: mock_xml_service)
+    monkeypatch.setattr("app.dependencies.get_catalog_service", lambda: mock_catalog_service)
+    monkeypatch.setattr("app.dependencies.get_xml_service", lambda: mock_xml_service)
     
     # Also monkeypatch directly in router modules
-    monkeypatch.setattr("app.routers.v2.reader.get_enhanced_catalog_service", lambda: mock_catalog_service)
-    monkeypatch.setattr("app.routers.v2.reader.get_enhanced_xml_service", lambda: mock_xml_service)
+    monkeypatch.setattr("app.routers.reader.get_catalog_service", lambda: mock_catalog_service)
+    monkeypatch.setattr("app.routers.reader.get_xml_service", lambda: mock_xml_service)
     
     # Return the app with mocked dependencies
     return app

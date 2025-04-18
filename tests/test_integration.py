@@ -18,9 +18,9 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.models.catalog import Text
-from app.services.enhanced_catalog_service import EnhancedCatalogService
-from app.services.enhanced_export_service import EnhancedExportService
-from app.services.enhanced_xml_service import EnhancedXMLService
+from app.services.catalog_service import CatalogService
+from app.services.export_service import ExportService
+from app.services.xml_processor_service import XMLProcessorService
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def sample_text() -> Text:
 @pytest.fixture
 def mock_catalog_service(mocker, sample_text):
     """Create a mock catalog service."""
-    mock_service = mocker.Mock(spec=EnhancedCatalogService)
+    mock_service = mocker.Mock(spec=CatalogService)
     
     # Configure the mock to return appropriate texts
     mock_service.get_text_by_id.side_effect = lambda id: (
@@ -78,7 +78,7 @@ def mock_catalog_service(mocker, sample_text):
 @pytest.fixture
 def mock_xml_service(mocker):
     """Create a mock XML service."""
-    mock_service = mocker.Mock(spec=EnhancedXMLService)
+    mock_service = mocker.Mock(spec=XMLProcessorService)
     
     # Configure document loading
     mock_doc = mocker.Mock()
@@ -98,7 +98,7 @@ def mock_xml_service(mocker):
 @pytest.fixture
 def mock_export_service(mocker, tmp_path):
     """Create a mock export service."""
-    mock_service = mocker.Mock(spec=EnhancedExportService)
+    mock_service = mocker.Mock(spec=ExportService)
     
     # Configure export functionality
     export_path = tmp_path / "export.html"
@@ -116,11 +116,11 @@ def test_complete_text_access_workflow(
     """Test the complete workflow from catalog access to text display."""
     # Patch services
     mocker.patch(
-        "app.routers.v2.reader.get_enhanced_catalog_service",
+        "app.routers.reader.get_catalog_service",
         return_value=mock_catalog_service,
     )
     mocker.patch(
-        "app.routers.v2.reader.get_enhanced_xml_service", 
+        "app.routers.reader.get_xml_processor_service", 
         return_value=mock_xml_service
     )
     
@@ -148,21 +148,21 @@ def test_export_workflow(
     """Test the export workflow using ID-based access."""
     # Patch services
     mocker.patch(
-        "app.routers.v2.export.get_enhanced_catalog_service",
+        "app.routers.export.get_catalog_service",
         return_value=mock_catalog_service,
     )
     mocker.patch(
-        "app.routers.v2.export.get_enhanced_xml_service", 
+        "app.routers.export.get_xml_processor_service", 
         return_value=mock_xml_service
     )
     mocker.patch(
-        "app.routers.v2.export.get_enhanced_export_service",
+        "app.routers.export.get_export_service",
         return_value=mock_export_service,
     )
     
     # Test export endpoint
     response = client.post(
-        f"/api/v2/export/id/{sample_text.id}",
+        f"/api/export/id/{sample_text.id}",
         json={"format": "html", "include_metadata": True}
     )
     assert response.status_code == 200
@@ -188,16 +188,16 @@ def test_reference_navigation(
     
     # Patch services
     mocker.patch(
-        "app.routers.v2.reader.get_enhanced_catalog_service",
+        "app.routers.reader.get_catalog_service",
         return_value=mock_catalog_service,
     )
     mocker.patch(
-        "app.routers.v2.reader.get_enhanced_xml_service", 
+        "app.routers.reader.get_xml_processor_service", 
         return_value=mock_xml_service
     )
     
     # Test references endpoint
-    response = client.get(f"/api/v2/references/id/{sample_text.id}")
+    response = client.get(f"/api/references/id/{sample_text.id}")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
@@ -237,11 +237,11 @@ def test_error_handling(client, mocker, mock_catalog_service, mock_xml_service):
     
     # Patch services
     mocker.patch(
-        "app.routers.v2.reader.get_enhanced_catalog_service",
+        "app.routers.reader.get_catalog_service",
         return_value=mock_catalog_service,
     )
     mocker.patch(
-        "app.routers.v2.reader.get_enhanced_xml_service", 
+        "app.routers.reader.get_xml_processor_service", 
         return_value=mock_xml_service
     )
     
