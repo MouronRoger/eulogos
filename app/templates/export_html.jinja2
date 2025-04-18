@@ -246,9 +246,17 @@
         </div>
         {% endif %}
 
+        {% if metadata.get('text_id') %}
+        <div class="text-id">
+            ID: {{ metadata.get('text_id') }}
+        </div>
+        {% endif %}
+
+        {% if metadata.get('urn') %}
         <div class="urn">
             URN: {{ metadata.get('urn') }}
         </div>
+        {% endif %}
     </div>
 
     <div class="content-wrapper">

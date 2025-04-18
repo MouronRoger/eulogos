@@ -30,7 +30,8 @@ class CatalogService:
         self._unified_catalog = None
 
         # Derived indexes
-        self._texts_by_urn: Dict[str, Text] = {}
+        
+        self._texts_by_id: Dict[str, Text] = {}
         self._texts_by_author: Dict[str, List[Text]] = {}
         self._texts_by_language: Dict[str, List[Text]] = {}
         self._authors_by_century: Dict[int, List[Author]] = {}
@@ -167,6 +168,7 @@ class CatalogService:
 
                     # Create text entry for this edition
                     text_entry = {
+                        "id": f"{author_id}.{work_id}.{edition_id}",  # Create stable ID
                         "urn": edition_urn,
                         "group_name": author_data.get("name", "Unknown Author"),
                         "work_name": work_name,
@@ -191,6 +193,7 @@ class CatalogService:
 
                     # Create text entry for this translation
                     text_entry = {
+                        "id": f"{author_id}.{work_id}.{translation_id}",  # Create stable ID
                         "urn": translation_urn,
                         "group_name": author_data.get("name", "Unknown Author"),
                         "work_name": f"{work_name} ({language} translation)",
@@ -238,8 +241,13 @@ class CatalogService:
             logger.error("Cannot build indexes: unified catalog not created")
             return
 
-        # Index texts by URN
-        self._texts_by_urn = {text.urn: text for text in self._unified_catalog.catalog}
+        
+
+        # Index texts by ID
+        self._texts_by_id = {}
+        for text in self._unified_catalog.catalog:
+            if text.id:
+                self._texts_by_id[text.id] = text
 
         # Index texts by author
         self._texts_by_author = {}
@@ -272,16 +280,18 @@ class CatalogService:
                 self._authors_by_type[author.type] = []
             self._authors_by_type[author.type].append(author)
 
-    def get_text_by_urn(self, urn: str) -> Optional[Text]:
-        """Get a text by its URN.
-
+    def get_text_by_id(self, text_id: str) -> Optional[Text]:
+        """Get a text by its stable ID (not URN).
+        
         Args:
-            urn: The URN of the text
-
+            text_id: The stable ID of the text
+            
         Returns:
             The text object or None if not found
         """
-        return self._texts_by_urn.get(urn)
+        return self._texts_by_id.get(text_id)
+
+    
 
     def get_texts_by_author(self, author_id: str, include_archived: bool = False) -> List[Text]:
         """Get all texts by an author.
@@ -447,35 +457,12 @@ class CatalogService:
         for text in self._unified_catalog.catalog:
             # Log warning if text has no path from catalog
             if not text.path:
-                logger.warning(f"Text {text.urn} has no path in catalog")
+                logger.warning(f"Text {text.id} has no path in catalog")
                 continue
 
             # Validate that the path exists on disk
                 file_path = self.data_dir / text.path
                 if not file_path.exists():
-                    logger.warning(f"Path does not exist for {text.urn}: {file_path}")
+                    logger.warning(f"Path does not exist for {text.id}: {file_path}")
 
-    def get_path_by_urn(self, urn: str) -> Optional[str]:
-        """DEPRECATED: Do not use this method for path resolution.
-        
-        This method bypasses the canonical path resolution through text objects.
-        Use get_text_by_urn().path instead to ensure canonical path handling.
-
-        Args:
-            urn: URN string to look up
-
-        Returns:
-            Optional path string if found
-            
-        Deprecated:
-            This method will be removed in a future version.
-            All path resolution should go through text objects via get_text_by_urn().
-        """
-        logger.warning(
-            "DEPRECATED: get_path_by_urn() called - use get_text_by_urn().path instead "
-            "to ensure canonical path handling"
-        )
-        text = self.get_text_by_urn(urn)
-        if text and hasattr(text, "path"):
-            return text.path
-        return None
+    

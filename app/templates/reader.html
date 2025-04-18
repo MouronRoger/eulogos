@@ -334,6 +334,7 @@
                             {% if text.wordcount %}
                             <p>Word count: {{ text.wordcount }}</p>
                             {% endif %}
+                            <p>ID: {{ text.id }}</p>
                         </div>
                     </div>
 
@@ -404,14 +405,14 @@
                     <!-- Text controls -->
             <div class="mt-4 flex space-x-2">
                         <button
-                            hx-post="/api/v2/texts/{{ text.urn }}/archive?archive={{ not text.archived }}"
+                            hx-post="/api/v2/texts/id/{{ text.id }}/archive?archive={{ not text.archived }}"
                             hx-target="#reader-container"
                             class="px-2 py-1 {{ 'bg-green-600' if text.archived else 'bg-gray-600' }} text-white rounded text-sm"
                         >
                             {{ 'Unarchive' if text.archived else 'Archive' }}
                         </button>
                         <button
-                            hx-post="/api/v2/texts/{{ text.urn }}/favorite"
+                            hx-post="/api/v2/texts/id/{{ text.id }}/favorite"
                             hx-target="#reader-container"
                             class="px-2 py-1 {{ 'bg-yellow-600' if text.favorite else 'bg-gray-600' }} text-white rounded text-sm"
                         >
@@ -432,13 +433,13 @@
                         class="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded shadow-lg z-50"
                             >
                         <div class="py-1">
-                            <a href="/api/v2/export/{{ text.urn }}?format=pdf" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">PDF</a>
-                            <a href="/api/v2/export/{{ text.urn }}?format=epub" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">ePub</a>
-                            <a href="/api/v2/export/{{ text.urn }}?format=mobi" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">MOBI</a>
-                            <a href="/api/v2/export/{{ text.urn }}?format=markdown" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Markdown</a>
-                            <a href="/api/v2/export/{{ text.urn }}?format=docx" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">DOCX</a>
-                            <a href="/api/v2/export/{{ text.urn }}?format=latex" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">LaTeX</a>
-                            <a href="/api/v2/export/{{ text.urn }}?format=html" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">HTML</a>
+                            <a href="/api/v2/export/id/{{ text.id }}?format=pdf" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">PDF</a>
+                            <a href="/api/v2/export/id/{{ text.id }}?format=epub" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">ePub</a>
+                            <a href="/api/v2/export/id/{{ text.id }}?format=mobi" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">MOBI</a>
+                            <a href="/api/v2/export/id/{{ text.id }}?format=markdown" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Markdown</a>
+                            <a href="/api/v2/export/id/{{ text.id }}?format=docx" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">DOCX</a>
+                            <a href="/api/v2/export/id/{{ text.id }}?format=latex" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">LaTeX</a>
+                            <a href="/api/v2/export/id/{{ text.id }}?format=html" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">HTML</a>
                         </div>
                                 </div>
                             </div>
@@ -455,7 +456,7 @@
                 <div class="flex space-x-2">
                     {% if prev_ref %}
                     <a
-                        href="/data/{{ path }}?reference={{ prev_ref }}"
+                        href="/read/id/{{ text.id }}?reference={{ prev_ref }}"
                         class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
                         Previous
@@ -468,7 +469,7 @@
 
                     {% if next_ref %}
                     <a
-                        href="/data/{{ path }}?reference={{ next_ref }}"
+                        href="/read/id/{{ text.id }}?reference={{ next_ref }}"
                         class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
                         Next
@@ -504,7 +505,7 @@
             <div x-show="showToc" class="border-t border-gray-200 dark:border-gray-700">
                 <div
                     class="p-4 max-h-64 overflow-y-auto"
-                    hx-get="/api/references/{{ path }}"
+                    hx-get="/api/v2/references/id/{{ text.id }}"
                     hx-trigger="load"
                     hx-target="this"
                 >

@@ -10,7 +10,7 @@ This module provides enhanced endpoints for text management functionality includ
 
 from typing import List
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query
 
 from app.dependencies import get_enhanced_catalog_service
 from app.services.enhanced_catalog_service import EnhancedCatalogService
@@ -47,6 +47,36 @@ async def archive_text(
         raise HTTPException(status_code=404, detail=f"Text not found: {str(e)}")
 
 
+@router.post("/texts/id/{text_id}/archive", response_model=None)
+async def archive_text_by_id(
+    text_id: str = Path(..., description="The stable ID of the text"),
+    archive: bool = True, 
+    catalog_service: EnhancedCatalogService = Depends(get_enhanced_catalog_service)
+):
+    """Archive or unarchive a text by ID.
+
+    Args:
+        text_id: The stable ID of the text to archive/unarchive
+        archive: True to archive, False to unarchive
+        catalog_service: EnhancedCatalogService instance
+
+    Returns:
+        JSON response with status and archived state
+
+    Raises:
+        HTTPException: If text is not found
+    """
+    try:
+        text = catalog_service.get_text_by_id(text_id)
+        if not text:
+            raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
+            
+        catalog_service.archive_text(text.urn, archive)
+        return {"status": "success", "archived": archive, "text_id": text_id}
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Error archiving text: {str(e)}")
+
+
 @router.post("/texts/{urn}/favorite", response_model=None)
 async def favorite_text(urn: str, catalog_service: EnhancedCatalogService = Depends(get_enhanced_catalog_service)):
     """Toggle favorite status for a text.
@@ -66,6 +96,34 @@ async def favorite_text(urn: str, catalog_service: EnhancedCatalogService = Depe
         return {"status": "success", "urn": urn, "favorite": result}
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Text not found: {str(e)}")
+
+
+@router.post("/texts/id/{text_id}/favorite", response_model=None)
+async def favorite_text_by_id(
+    text_id: str = Path(..., description="The stable ID of the text"),
+    catalog_service: EnhancedCatalogService = Depends(get_enhanced_catalog_service)
+):
+    """Toggle favorite status for a text by ID.
+
+    Args:
+        text_id: The stable ID of the text to favorite/unfavorite
+        catalog_service: EnhancedCatalogService instance
+
+    Returns:
+        JSON response with status
+
+    Raises:
+        HTTPException: If text is not found
+    """
+    try:
+        text = catalog_service.get_text_by_id(text_id)
+        if not text:
+            raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
+            
+        result = catalog_service.toggle_text_favorite(text.urn)
+        return {"status": "success", "text_id": text_id, "favorite": result}
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Error toggling favorite: {str(e)}")
 
 
 @router.delete("/texts/{urn}", response_model=None)
@@ -95,6 +153,39 @@ async def delete_text(
         return {"status": "success", "urn": urn}
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Text not found: {str(e)}")
+
+
+@router.delete("/texts/id/{text_id}", response_model=None)
+async def delete_text_by_id(
+    text_id: str = Path(..., description="The stable ID of the text"),
+    confirmation: bool = Query(False, description="Confirm deletion"),
+    catalog_service: EnhancedCatalogService = Depends(get_enhanced_catalog_service),
+):
+    """Delete a text by ID.
+
+    Args:
+        text_id: The stable ID of the text to delete
+        confirmation: Confirmation flag
+        catalog_service: EnhancedCatalogService instance
+
+    Returns:
+        JSON response with status
+
+    Raises:
+        HTTPException: If text is not found or confirmation not provided
+    """
+    if not confirmation:
+        raise HTTPException(status_code=400, detail="Confirmation required")
+
+    try:
+        text = catalog_service.get_text_by_id(text_id)
+        if not text:
+            raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
+            
+        catalog_service.delete_text(text.urn)
+        return {"status": "success", "text_id": text_id}
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Error deleting text: {str(e)}")
 
 
 @router.post("/texts/batch", response_model=None)

@@ -1,118 +1,52 @@
-"""Tests for catalog models."""
+"""Tests for catalog models.
+
+This module tests the catalog data models and ensures they function properly
+with ID-based references instead of URN-based references.
+"""
 
 import pytest
 
 from app.models.catalog import Author, Text, CatalogStatistics, UnifiedCatalog
 
 
-def test_author_model():
-    """Test the Author model."""
-    author = Author(name="Homer", century=-8, type="Poet")
-    assert author.name == "Homer"
-    assert author.century == -8
-    assert author.type == "Poet"
-
-
-def test_text_model():
-    """Test the Text model with URN parsing."""
-    text = Text(
-        urn="urn:cts:greekLit:tlg0012.tlg001.perseus-grc2",
-        group_name="Homer",
-        work_name="Iliad",
-        language="grc",
-        wordcount=102000,
-        author_id="tlg0012",
-    )
-    
-    assert text.urn == "urn:cts:greekLit:tlg0012.tlg001.perseus-grc2"
-    assert text.group_name == "Homer"
-    assert text.work_name == "Iliad"
-    assert text.language == "grc"
-    assert text.wordcount == 102000
-    assert text.author_id == "tlg0012"
-    
-    # Check parsed URN components
-    assert text.namespace == "greekLit"
-    assert text.textgroup == "tlg0012"
-    assert text.work_id == "tlg001"
-    assert text.version == "perseus-grc2"
-    assert text.passage is None
-
-
-def test_text_model_with_passage():
-    """Test the Text model with a passage reference in the URN."""
-    text = Text(
-        urn="urn:cts:greekLit:tlg0012.tlg001.perseus-grc2:1.1-1.10",
-        group_name="Homer",
-        work_name="Iliad",
-        language="grc",
-        wordcount=102000,
-        author_id="tlg0012",
-    )
-    
-    # Check parsed URN components
-    assert text.namespace == "greekLit"
-    assert text.textgroup == "tlg0012"
-    assert text.work_id == "tlg001"
-    assert text.version == "perseus-grc2"
-    assert text.passage == "1.1-1.10"
-
-
-def test_catalog_statistics():
-    """Test the CatalogStatistics model."""
-    stats = CatalogStatistics(
-        nodeCount=1000,
-        greekWords=5000000,
-        latinWords=1000000,
-        arabicwords=10000,
-        authorCount=500,
-        textCount=2000,
-    )
-    
-    assert stats.nodeCount == 1000
-    assert stats.greekWords == 5000000
-    assert stats.latinWords == 1000000
-    assert stats.arabicwords == 10000
-    assert stats.authorCount == 500
-    assert stats.textCount == 2000
-
-
 def test_unified_catalog():
-    """Test the UnifiedCatalog model with nested components."""
+    """Test the UnifiedCatalog model with nested components using ID-based references."""
     # Create authors
     authors = {
-        "tlg0012": Author(name="Homer", century=-8, type="Poet"),
-        "tlg0059": Author(name="Plato", century=-4, type="Philosopher"),
+        "author1": Author(id="author1", name="Homer", century=-8, type="Poet"),
+        "author2": Author(id="author2", name="Plato", century=-4, type="Philosopher"),
     }
     
-    # Create texts
+    # Create texts with IDs and paths (no URNs)
     texts = [
         Text(
-            urn="urn:cts:greekLit:tlg0012.tlg001.perseus-grc2",
+            id="text1",
             group_name="Homer",
             work_name="Iliad",
             language="grc",
             wordcount=102000,
-            author_id="tlg0012",
+            author_id="author1",
+            path="data/grc/homer/iliad.xml",
         ),
         Text(
-            urn="urn:cts:greekLit:tlg0059.tlg002.perseus-grc2",
+            id="text2",
             group_name="Plato",
             work_name="Republic",
             language="grc",
             wordcount=85000,
-            author_id="tlg0059",
+            author_id="author2",
+            path="data/grc/plato/republic.xml",
         ),
     ]
     
     # Create statistics
     stats = CatalogStatistics(
-        nodeCount=1000,
-        greekWords=187000,
-        latinWords=0,
-        arabicwords=0,
-        authorCount=2,
-        textCount=2,
+        text_count=2,
+        author_count=2,
+        work_count=2,
+        greek_word_count=187000,
+        latin_word_count=0,
+        arabic_word_count=0,
     )
     
     # Create the unified catalog
@@ -123,14 +57,78 @@ def test_unified_catalog():
     )
     
     # Check components
-    assert catalog.statistics.authorCount == 2
-    assert catalog.statistics.textCount == 2
-    assert catalog.statistics.greekWords == 187000
+    assert catalog.statistics.author_count == 2
+    assert catalog.statistics.text_count == 2
+    assert catalog.statistics.greek_word_count == 187000
     
     assert len(catalog.authors) == 2
-    assert catalog.authors["tlg0012"].name == "Homer"
-    assert catalog.authors["tlg0059"].name == "Plato"
+    assert catalog.authors["author1"].name == "Homer"
+    assert catalog.authors["author2"].name == "Plato"
     
     assert len(catalog.catalog) == 2
     assert catalog.catalog[0].work_name == "Iliad"
-    assert catalog.catalog[1].work_name == "Republic" 
+    assert catalog.catalog[1].work_name == "Republic"
+    assert catalog.catalog[0].id == "text1"
+    assert catalog.catalog[1].id == "text2"
+    assert catalog.catalog[0].path == "data/grc/homer/iliad.xml"
+    assert catalog.catalog[1].path == "data/grc/plato/republic.xml"
+
+
+def test_text_model():
+    """Test the Text model with ID-based functionality."""
+    # Create a text with ID and path
+    text = Text(
+        id="text-123",
+        group_name="Homer",
+        work_name="Iliad",
+        language="grc",
+        wordcount=102000,
+        author_id="author-456",
+        path="data/grc/homer/iliad.xml",
+    )
+    
+    # Test properties
+    assert text.id == "text-123"
+    assert text.group_name == "Homer"
+    assert text.work_name == "Iliad"
+    assert text.language == "grc"
+    assert text.wordcount == 102000
+    assert text.author_id == "author-456"
+    assert text.path == "data/grc/homer/iliad.xml"
+    
+    # Test dictionary conversion
+    text_dict = text.to_dict()
+    assert text_dict["id"] == "text-123"
+    assert text_dict["group_name"] == "Homer"
+    assert text_dict["work_name"] == "Iliad"
+    assert text_dict["language"] == "grc"
+    assert text_dict["wordcount"] == 102000
+    assert text_dict["author_id"] == "author-456"
+    assert text_dict["path"] == "data/grc/homer/iliad.xml"
+    assert "urn" not in text_dict  # Ensure no URN
+    
+    # Test creation from dictionary
+    new_text = Text.from_dict(text_dict)
+    assert new_text.id == text.id
+    assert new_text.group_name == text.group_name
+    assert new_text.work_name == text.work_name
+    assert new_text.language == text.language
+    assert new_text.wordcount == text.wordcount
+    assert new_text.author_id == text.author_id
+    assert new_text.path == text.path
+    
+    # Test string representation
+    assert str(text) == f"{text.group_name}: {text.work_name} ({text.language})"
+
+
+def test_author_model():
+    """Test the Author model."""
+    author = Author(id="author-123", name="Homer", century=-8, type="Poet")
+    
+    assert author.id == "author-123"
+    assert author.name == "Homer"
+    assert author.century == -8
+    assert author.type == "Poet"
+    
+    # Test string representation
+    assert str(author) == "Homer (8th century BCE)" 

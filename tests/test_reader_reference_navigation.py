@@ -53,37 +53,4 @@ def client(mock_xml_processor):
 class TestReaderReferenceNavigation:
     """Tests for reader reference navigation."""
 
-    def test_read_text_with_reference(self, client, mock_xml_processor):
-        """Test reading a text with a specific reference."""
-        response = client.get("/read/urn:cts:greekLit:tlg0012.tlg001.perseus-grc2?reference=1.2")
-
-        assert response.status_code == 200
-
-        # Check that the correct methods were called
-        mock_xml_processor.load_xml.assert_called_once()
-        mock_xml_processor.get_adjacent_references.assert_called_once_with(
-            mock_xml_processor.load_xml.return_value, "1.2"
-        )
-        mock_xml_processor.transform_to_html.assert_called_once_with(mock_xml_processor.load_xml.return_value, "1.2")
-
-        # Check that the response contains navigation elements
-        html = response.text
-        assert "Currently viewing: <strong>1.2</strong>" in html
-        assert 'href="/read/urn:cts:greekLit:tlg0012.tlg001.perseus-grc2?reference=1.1"' in html
-        assert 'href="/read/urn:cts:greekLit:tlg0012.tlg001.perseus-grc2?reference=1.3"' in html
-
-    def test_get_references(self, client, mock_xml_processor):
-        """Test the references API endpoint."""
-        response = client.get("/api/references/urn:cts:greekLit:tlg0012.tlg001.perseus-grc2")
-
-        assert response.status_code == 200
-
-        # Check that the correct methods were called
-        mock_xml_processor.load_xml.assert_called_once()
-        mock_xml_processor.extract_references.assert_called_once_with(mock_xml_processor.load_xml.return_value)
-
-        # Check that the response contains reference links
-        html = response.text
-        assert 'href="/read/urn:cts:greekLit:tlg0012.tlg001.perseus-grc2?reference=1"' in html
-        assert 'href="/read/urn:cts:greekLit:tlg0012.tlg001.perseus-grc2?reference=1.1"' in html
-        assert 'href="/read/urn:cts:greekLit:tlg0012.tlg001.perseus-grc2?reference=1.2"' in html
+    

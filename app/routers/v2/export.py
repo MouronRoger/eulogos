@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path as PathParam
 from fastapi.responses import StreamingResponse
 
 from app.dependencies import get_enhanced_catalog_service, get_enhanced_xml_service
@@ -63,10 +63,10 @@ class ExportProgress:
         self.completed_items += 1
         self._update_progress()
 
-    def add_error(self, urn: str, error: str):
-        """Add error for URN."""
-        self.failed_items += 1
-        self.errors.append({"urn": urn, "error": error})
+    def add_error(self, text_id: str, error: str):
+        """Add error for text ID."""
+
+        self.errors.append({"text_id": text_id, "error": error})
         self._update_progress()
 
     def complete(self):
@@ -99,35 +99,41 @@ class ExportProgress:
 
 
 async def process_export(
-    urn: str, options: ExportOptions, export_service: EnhancedExportService, progress: ExportProgress
+    text_id: str, options: ExportOptions, export_service: EnhancedExportService, progress: ExportProgress
 ) -> Optional[Path]:
     """Process single export."""
     try:
         if options.format == "html":
-            path = export_service.export_to_html(urn, options.dict())
+            text = export_service.catalog_service.get_text_by_id(text_id)
+    if not text:
+        progress.add_error(text_id, f"Text not found: {text_id}")
+        progress.increment_failed()
+        return None
+
+    path = export_service.export_to_html(text_id, options.dict())
         elif options.format == "markdown":
-            path = export_service.export_to_markdown(urn, options.dict())
+            path = export_service.export_to_markdown(text_id, options.dict())
         elif options.format == "latex":
-            path = export_service.export_to_latex(urn, options.dict())
+            path = export_service.export_to_latex(text_id, options.dict())
         elif options.format == "pdf":
-            path = export_service.export_to_pdf(urn, options.dict())
+            path = export_service.export_to_pdf(text_id, options.dict())
         elif options.format == "epub":
-            path = export_service.export_to_epub(urn, options.dict())
+            path = export_service.export_to_epub(text_id, options.dict())
         else:
             raise ValueError(f"Unsupported format: {options.format}")
 
         progress.increment_completed()
         return path
     except Exception as e:
-        logger.error(f"Error exporting {urn}: {e}")
-        progress.add_error(urn, str(e))
+        logger.error(f"Error exporting {text_id}: {e}")
+        progress.add_error(text_id, str(e))
         return None
 
 
 @router.post("/batch")
 @requires_scope(["export:texts"])
 async def batch_export(
-    urns: List[str],
+    text_ids: List[str],
     options: ExportOptions,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
@@ -136,11 +142,11 @@ async def batch_export(
     validators: RequestValidators = Depends(),
 ) -> Dict[str, Any]:
     """Start batch export process."""
-    # Validate all URNs and options
-    validated = validators.validate_batch_export(urns, options.dict())
+    # Validate all text IDs and options
+    # No validation needed for text IDs
 
     # Create progress tracker
-    progress = ExportProgress(len(urns))
+    progress = ExportProgress(len(text_ids))
 
     # Create export service with temp directory
     export_service = EnhancedExportService(
@@ -148,18 +154,18 @@ async def batch_export(
     )
 
     # Start background task
-    background_tasks.add_task(process_batch_export, validated["urns"], validated["options"], export_service, progress)
+    background_tasks.add_task(process_batch_export, text_ids, options, export_service, progress)
 
     return {"message": "Batch export started", "job_id": progress.job_id}
 
 
 async def process_batch_export(
-    urns: List[str], options: ExportOptions, export_service: EnhancedExportService, progress: ExportProgress
+    text_ids: List[str], options: ExportOptions, export_service: EnhancedExportService, progress: ExportProgress
 ):
     """Process batch export in background."""
     try:
         # Process exports concurrently
-        tasks = [process_export(urn, options, export_service, progress) for urn in urns]
+        tasks = [process_export(text_id, options, export_service, progress) for text_id in text_ids]
         paths = await asyncio.gather(*tasks)
 
         # Create zip file if needed
@@ -174,7 +180,7 @@ async def process_batch_export(
     except Exception as e:
         logger.error(f"Error in batch export: {e}")
         progress.status = "failed"
-        progress.errors.append({"urn": "batch", "error": str(e)})
+        progress.errors.append({"text_id": "batch", "error": str(e)})
         progress._update_progress()
 
 
@@ -213,10 +219,10 @@ async def download_export(job_id: str, current_user: User = Depends(get_current_
     )
 
 
-@router.post("/{urn}")
+@router.post("/{text_id}")
 @requires_scope(["export:texts"])
 async def export_single(
-    urn: str,
+    text_id: str,
     options: ExportOptions,
     current_user: User = Depends(get_current_user),
     catalog_service: EnhancedCatalogService = Depends(get_enhanced_catalog_service),
@@ -224,8 +230,8 @@ async def export_single(
     validators: RequestValidators = Depends(),
 ) -> Dict[str, Any]:
     """Export single text."""
-    # Validate URN and options
-    validated_urn = validators.validate_urn(urn)
+    # Validate text ID and options
+    # No validation needed for text ID
 
     # Create export service
     export_service = EnhancedExportService(
@@ -234,19 +240,79 @@ async def export_single(
 
     try:
         if options.format == "html":
-            path = export_service.export_to_html(validated_urn, options.dict())
+            path = export_service.export_to_html(text_id, options.dict())
         elif options.format == "markdown":
-            path = export_service.export_to_markdown(validated_urn, options.dict())
+            path = export_service.export_to_markdown(text_id, options.dict())
         elif options.format == "latex":
-            path = export_service.export_to_latex(validated_urn, options.dict())
+            path = export_service.export_to_latex(text_id, options.dict())
         elif options.format == "pdf":
-            path = export_service.export_to_pdf(validated_urn, options.dict())
+            path = export_service.export_to_pdf(text_id, options.dict())
         elif options.format == "epub":
-            path = export_service.export_to_epub(validated_urn, options.dict())
+            path = export_service.export_to_epub(text_id, options.dict())
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported format: {options.format}")
 
-        return {"message": "Export successful", "path": str(path), "format": options.format}
+        return {"message": "Export successful", "path": str(path), "format": options.format, "text_id": text_id}
     except Exception as e:
-        logger.error(f"Error exporting {urn}: {e}")
+        logger.error(f"Error exporting {text_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+
+@router.post("/id/{text_id}")
+@requires_scope(["export:texts"])
+async def export_single_by_id(
+    text_id: str = PathParam(..., description="The stable ID of the text"),
+    options: ExportOptions = None,
+    current_user: User = Depends(get_current_user),
+    catalog_service: EnhancedCatalogService = Depends(get_enhanced_catalog_service),
+    xml_service: EnhancedXMLService = Depends(get_enhanced_xml_service),
+) -> Dict[str, Any]:
+    """Export single text by ID.
+    
+    Args:
+        text_id: The stable ID of the text to export
+        options: Export options
+        current_user: Current authenticated user
+        catalog_service: Enhanced catalog service
+        xml_service: Enhanced XML service
+        
+    Returns:
+        Export result with path and format
+        
+    Raises:
+        HTTPException: If text not found or export fails
+    """
+    # Get text from catalog by ID
+    text = catalog_service.get_text_by_id(text_id)
+    if not text:
+        raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
+        
+    
+
+    # Create export service
+    export_service = EnhancedExportService(
+        catalog_service=catalog_service, xml_service=xml_service, output_dir="exports/single"
+    )
+
+    try:
+        # Set text_id in options for use in metadata
+        options_dict = options.dict() if options else {}
+        options_dict["text_id"] = text_id
+        
+        if options.format == "html":
+            path = export_service.export_to_html(text_id, options_dict)
+        elif options.format == "markdown":
+            path = export_service.export_to_markdown(text_id, options_dict)
+        elif options.format == "latex":
+            path = export_service.export_to_latex(text_id, options_dict)
+        elif options.format == "pdf":
+            path = export_service.export_to_pdf(text_id, options_dict)
+        elif options.format == "epub":
+            path = export_service.export_to_epub(text_id, options_dict)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported format: {options.format}")
+
+        return {"message": "Export successful", "path": str(path), "format": options.format, "text_id": text_id}
+    except Exception as e:
+        logger.error(f"Error exporting text ID {text_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")

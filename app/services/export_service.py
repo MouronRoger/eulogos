@@ -5,7 +5,6 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from app.models.urn import URN
 from app.services.xml_processor_service import XMLProcessorService
 
 

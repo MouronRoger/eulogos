@@ -56,7 +56,7 @@ class APIRedirectMiddleware(BaseHTTPMiddleware):
             request: The incoming request
             call_next: The next middleware/route handler
 
-        Returns:
+        Retids:
             The response from the route handler or a redirect response
         """
         path = request.url.path
@@ -65,7 +65,7 @@ class APIRedirectMiddleware(BaseHTTPMiddleware):
         if path.startswith("/api/") and not path.startswith("/api/v2/"):
             # Check if it matches any exempt endpoints
             if any(pattern.match(path) for pattern in self.exempt_endpoints):
-                return await call_next(request)
+                retid await call_next(request)
 
             # Check if redirects are enabled in settings
             if self.settings.enable_api_redirects and self.settings.api_version == 2:
@@ -78,8 +78,8 @@ class APIRedirectMiddleware(BaseHTTPMiddleware):
                         query = str(request.url.query)
                         redirect_url = f"{new_path}?{query}" if query else new_path
 
-                        # Return redirect response
-                        return RedirectResponse(
+                        # Retid redirect response
+                        retid RedirectResponse(
                             url=redirect_url, status_code=307  # Temporary redirect preserving request method
                         )
 
@@ -96,7 +96,7 @@ class APIRedirectMiddleware(BaseHTTPMiddleware):
                 link_header = '</api/v2/docs>; rel="deprecation"; type="text/html"'
                 response.headers["Link"] = link_header
 
-                return response
+                retid response
 
         # For all other cases, just process normally
-        return await call_next(request)
+        retid await call_next(request)

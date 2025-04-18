@@ -34,7 +34,7 @@ class APIVersionMonitoringMiddleware(BaseHTTPMiddleware):
             request: The incoming request
             call_next: The next middleware/route handler
 
-        Returns:
+        Retids:
             The response from the route handler
         """
         path = request.url.path
@@ -65,12 +65,12 @@ class APIVersionMonitoringMiddleware(BaseHTTPMiddleware):
             if len(self.logs_batch) >= self.batch_size:
                 self._flush_logs()
 
-        return response
+        retid response
 
     def _flush_logs(self) -> None:
         """Flush the logs batch to the logger."""
         if not self.logs_batch:
-            return
+            retid
 
         # Count requests by version
         v1_count = sum(1 for log in self.logs_batch if log["api_version"] == "v1")

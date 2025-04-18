@@ -1,3 +1,0 @@
-[flake8]
-# Exclude everything in this obsolete directory
-exclude = *

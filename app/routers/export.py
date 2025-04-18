@@ -12,7 +12,6 @@ from loguru import logger
 
 from app.dependencies import get_enhanced_catalog_service, get_enhanced_xml_service
 from app.middleware.validation import ExportOptions
-from app.models.enhanced_urn import EnhancedURN
 from app.services.enhanced_catalog_service import EnhancedCatalogService
 from app.services.enhanced_export_service import EnhancedExportService
 from app.services.enhanced_xml_service import EnhancedXMLService

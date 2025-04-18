@@ -19,7 +19,6 @@ from fpdf import FPDF
 from weasyprint import HTML
 
 from app.config import EulogosSettings
-from app.models.enhanced_urn import EnhancedURN
 from app.services.enhanced_catalog_service import EnhancedCatalogService
 from app.services.enhanced_xml_service import EnhancedXMLService
 from app.services.xml_processor_service import XMLProcessorService
@@ -62,7 +61,7 @@ class EnhancedExportService:
         # Create output directory
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def export_to_html(self, urn: Union[str, EnhancedURN], options: Dict[str, Any] = None) -> Path:
+    def export_to_html(self, text_id: str, options: Dict[str, Any] = None) -> Path:
         """Export text to standalone HTML.
 
         Args:
@@ -80,10 +79,15 @@ class EnhancedExportService:
 
         # Get metadata
         metadata = self._get_metadata(urn)
+        
+        # Add text_id from options if provided
+        if "text_id" in options and options["text_id"]:
+            metadata["text_id"] = options["text_id"]
 
         # Get HTML content using the enhanced XML processor
         try:
-            if isinstance(urn, str):
+            text = self.catalog_service.get_text_by_id(text_id)
+        if not text:
                 # For string URNs, we need to resolve the filepath
                 text_obj = self.catalog_service.get_text_by_urn(urn)
                 if not text_obj or not hasattr(text_obj, 'path'):
@@ -123,7 +127,7 @@ class EnhancedExportService:
 
         return output_path
 
-    def export_to_markdown(self, urn: Union[str, EnhancedURN], options: Dict[str, Any] = None) -> Path:
+    def export_to_markdown(self, text_id: str, options: Dict[str, Any] = None) -> Path:
         """Export text to Markdown.
 
         Args:
@@ -174,7 +178,7 @@ class EnhancedExportService:
 
         return Path(md_path)
 
-    def export_to_latex(self, urn: Union[str, EnhancedURN], options: Dict[str, Any] = None) -> Path:
+    def export_to_latex(self, text_id: str, options: Dict[str, Any] = None) -> Path:
         """Export text to LaTeX.
 
         Args:
@@ -278,7 +282,7 @@ class EnhancedExportService:
 
         return Path(latex_path)
 
-    def export_to_pdf(self, urn: Union[str, EnhancedURN], options: Dict[str, Any] = None) -> Path:
+    def export_to_pdf(self, text_id: str, options: Dict[str, Any] = None) -> Path:
         """Export text to PDF."""
         options = options or {}
 
@@ -297,7 +301,7 @@ class EnhancedExportService:
 
         return pdf_path
 
-    def export_to_epub(self, urn: Union[str, EnhancedURN], options: Dict[str, Any] = None) -> Path:
+    def export_to_epub(self, text_id: str, options: Dict[str, Any] = None) -> Path:
         """Export text to EPUB."""
         options = options or {}
 
@@ -344,7 +348,7 @@ class EnhancedExportService:
 
         return epub_path
 
-    def _get_metadata(self, urn: Union[str, EnhancedURN]) -> Dict[str, Any]:
+    def _get_metadata(self, text_id: str) -> Dict[str, Any]:
         """Get metadata for export.
 
         Args:
@@ -358,14 +362,14 @@ class EnhancedExportService:
 
         # Parse URN to get components
         if isinstance(urn, EnhancedURN):
-            urn_obj = urn
+            text_id = urn
         else:
-            urn_obj = EnhancedURN(value=str(urn))
+            text_id = EnhancedURN(value=str(urn))
 
         # Get author information
         author = None
-        if urn_obj.textgroup:
-            author_id = urn_obj.textgroup
+        if text_id.textgroup:
+            author_id = text_id.textgroup
             authors = self.catalog_service.get_authors()
             for a in authors:
                 if a.id == author_id:
@@ -374,15 +378,16 @@ class EnhancedExportService:
 
         # Build metadata
         metadata = {
-            "title": getattr(text, "work_name", f"Text {urn_obj.textgroup}.{urn_obj.work}"),
+            "title": getattr(text, "work_name", f"Text {text_id.textgroup}.{text_id.work}"),
             "creators": [getattr(author, "name", "Unknown Author")] if author else [],
             "language": getattr(text, "language", "grc"),
-            "urn": str(urn_obj.value),
+            "urn": str(text_id.value),
+            "text_id": getattr(text, "id", None)
         }
 
         # Try to load document to get more metadata
         try:
-            document = self.xml_service.load_document(urn_obj)
+            document = self.xml_service.load_document(text_id)
 
             # Add document metadata
             if "title" in document.metadata and document.metadata["title"]:
@@ -423,9 +428,8 @@ class EnhancedExportService:
 
         # Convert URN to EnhancedURN if needed
         if not isinstance(urn, EnhancedURN):
-            urn_obj = EnhancedURN(value=str(urn))
-        else:
-            urn_obj = urn
+            text_id = EnhancedURN(value=str(urn))
+        
 
         # Use custom filename if provided
         if options.get("filename"):

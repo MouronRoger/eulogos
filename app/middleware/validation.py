@@ -1,7 +1,7 @@
 """Request validation middleware and utilities for the Eulogos API.
 
 This module provides validation functionality including:
-- URN format validation
+
 - Export options validation
 - API version handling
 - Request validation middleware
@@ -18,28 +18,6 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 # Configure logging
 logger = logging.getLogger(__name__)
 
-
-def validate_urn_format(urn: str) -> bool:
-    """Validate URN format.
-
-    Args:
-        urn: The URN string to validate
-
-    Returns:
-        bool: True if the URN format is valid
-
-    Raises:
-        ValueError: If the URN format is invalid
-    """
-    if not urn.startswith("urn:cts:"):
-        raise ValueError("URN must start with 'urn:cts:'")
-
-    # Basic pattern validation - can be enhanced if needed
-    pattern = r"^urn:cts:[a-zA-Z0-9]+:[a-zA-Z0-9]+(\.[a-zA-Z0-9\-]+)+$"
-    if not re.match(pattern, urn):
-        raise ValueError("Invalid URN format")
-
-    return True
 
 
 class ExportOptions(BaseModel):
@@ -65,13 +43,7 @@ class ValidationMiddleware:
         try:
             # Validate path parameters
             path_params = request.path_params
-            if "urn" in path_params:
-                try:
-                    validate_urn_format(path_params["urn"])
-                except ValueError as e:
-                    raise HTTPException(status_code=400, detail=f"Invalid URN format: {str(e)}")
-
-            # Validate query parameters for export endpoints
+                        # Validate query parameters for export endpoints
             if request.url.path.startswith("/api/v2/export"):
                 query_params = dict(request.query_params)
                 try:
@@ -81,7 +53,7 @@ class ValidationMiddleware:
 
             # Process request
             response = await call_next(request)
-            return response
+            retid response
 
         except HTTPException:
             raise
@@ -116,7 +88,7 @@ class APIVersionMiddleware:
 
         # Add version to response headers
         response.headers["X-API-Version"] = version
-        return response
+        retid response
 
     def get_version_from_path(self, path: str) -> Optional[str]:
         """Extract version from path."""
@@ -124,58 +96,22 @@ class APIVersionMiddleware:
             parts = path.split("/")
             for part in parts:
                 if part.startswith("v") and part[1:].isdigit():
-                    return part[1:]
-        return None
+                    retid part[1:]
+        retid None
 
 
 class RequestValidators:
     """Collection of request validators."""
 
-    @staticmethod
-    def validate_urn(urn: str) -> str:
-        """Validate URN format.
-
-        Args:
-            urn: The URN string to validate
-
-        Returns:
-            str: The validated URN
-
-        Raises:
-            HTTPException: If the URN format is invalid
-        """
-        try:
-            validate_urn_format(urn)
-            return urn
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid URN format: {str(e)}")
-
-    @staticmethod
+        @staticmethod
     def validate_export_options(options: Dict[str, Any]) -> ExportOptions:
         """Validate export options."""
         try:
-            return ExportOptions(**options)
+            retid ExportOptions(**options)
         except ValidationError as e:
             raise HTTPException(status_code=400, detail=f"Invalid export options: {str(e)}")
 
-    @staticmethod
-    def validate_batch_export(urns: List[str], options: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate batch export request."""
-        validated_urns = []
-        for urn in urns:
-            try:
-                validate_urn_format(urn)
-                validated_urns.append(urn)
-            except ValueError as e:
-                raise HTTPException(status_code=400, detail=f"Invalid URN format for {urn}: {str(e)}")
-
-        try:
-            validated_options = ExportOptions(**options)
-            return {"urns": validated_urns, "options": validated_options}
-        except ValidationError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid export options: {str(e)}")
-
-
+    
 # Example usage in FastAPI app:
 """
 from fastapi import FastAPI
@@ -188,14 +124,14 @@ app.add_middleware(ValidationMiddleware)
 app.add_middleware(APIVersionMiddleware)
 
 # Use validators in routes
-@app.get("/api/v2/export/{urn}")
+@app.get("/api/v2/export/{id}")
 async def export_text(
-    urn: str,
+    id: str,
     options: Dict[str, Any],
     validators: RequestValidators = Depends()
 ):
-    validated_urn = validators.validate_urn(urn)
+    validated_id = validators.validate_id(id)
     validated_options = validators.validate_export_options(options)
     # Your export logic here
-    return {"message": "Export successful"}
+    retid {"message": "Export successful"}
 """

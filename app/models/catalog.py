@@ -1,7 +1,9 @@
 """Pydantic models for catalog data."""
 
-from typing import ClassVar, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
+import uuid
 
+from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -13,13 +15,19 @@ class Author(BaseModel):
     type: str
     id: Optional[str] = None  # Author ID (typically the textgroup)
 
+    def __str__(self) -> str:
+        """String representation of the author."""
+        century_abs = abs(self.century)
+        era = "BCE" if self.century < 0 else "CE"
+        return f"{self.name} ({century_abs}th century {era})"
+
 
 class Text:
     """Model for a text in the catalog."""
 
     def __init__(
         self,
-        urn: str,
+        id: str,  # Explicit ID field
         group_name: str,
         work_name: str,
         language: str,
@@ -32,7 +40,7 @@ class Text:
         """Initialize a text.
 
         Args:
-            urn: The URN of the text
+            id: The stable ID of the text
             group_name: The name of the text group
             work_name: The name of the work
             language: The language of the text
@@ -42,7 +50,7 @@ class Text:
             archived: Whether the text is archived
             favorite: Whether the text is favorited
         """
-        self.urn = urn
+        self.id = id
         self.group_name = group_name
         self.work_name = work_name
         self.language = language
@@ -64,10 +72,17 @@ class Text:
         """
         # Path must come from catalog
         if "path" not in values:
-            logger.warning(f"No path provided in catalog for text {values.get('urn', 'unknown')}")
+            logger.warning(f"No path provided in catalog for text {values.get('id', 'unknown')}")
+        
+        # Ensure we have an ID
+        text_id = values.get("id")
+        if not text_id:
+            # Generate a UUID if no ID provided
+            text_id = f"text_{uuid.uuid4()}"
+            logger.warning(f"No ID provided for text, using {text_id}")
 
         return cls(
-            urn=values["urn"],
+            id=text_id,
             group_name=values["group_name"],
             work_name=values["work_name"],
             language=values["language"],
@@ -85,7 +100,7 @@ class Text:
             Dictionary representation of the text
         """
         return {
-            "urn": self.urn,
+            "id": self.id,
             "group_name": self.group_name,
             "work_name": self.work_name,
             "language": self.language,
@@ -95,22 +110,28 @@ class Text:
             "archived": self.archived,
             "favorite": self.favorite,
         }
+        
+    def __str__(self) -> str:
+        """String representation of the text."""
+        return f"{self.group_name}: {self.work_name} ({self.language})"
 
 
 class CatalogStatistics(BaseModel):
     """Statistics about the catalog."""
 
-    nodeCount: int = 0
-    greekWords: int = 0
-    latinWords: int = 0
-    arabicwords: int = 0
-    authorCount: int = 0
-    textCount: int = 0
+    author_count: int = 0
+    text_count: int = 0
+    work_count: int = 0
+    greek_word_count: int = 0
+    latin_word_count: int = 0
+    arabic_word_count: int = 0
 
 
 class UnifiedCatalog(BaseModel):
     """Unified catalog model combining author and text data."""
 
+    model_config = {"arbitrary_types_allowed": True}
+    
     statistics: CatalogStatistics
     authors: Dict[str, Author]
     catalog: List[Text]
