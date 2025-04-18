@@ -22,6 +22,7 @@ from app.config import EulogosSettings
 from app.models.enhanced_urn import EnhancedURN
 from app.services.enhanced_catalog_service import EnhancedCatalogService
 from app.services.enhanced_xml_service import EnhancedXMLService
+from app.services.xml_processor_service import XMLProcessorService
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +81,27 @@ class EnhancedExportService:
         # Get metadata
         metadata = self._get_metadata(urn)
 
-        # Get HTML content
-        html_content = self.xml_service.transform_to_html(urn, options.get("reference"))
+        # Get HTML content using the enhanced XML processor
+        try:
+            if isinstance(urn, str):
+                # For string URNs, we need to resolve the filepath
+                text_obj = self.catalog_service.get_text_by_urn(urn)
+                if not text_obj or not hasattr(text_obj, 'path'):
+                    raise FileNotFoundError(f"Text not found for URN: {urn}")
+                
+                filepath = text_obj.path
+                xml_processor = XMLProcessorService(data_path=os.path.dirname(os.path.dirname(filepath)))
+                xml_content = xml_processor.load_xml_from_path(filepath)
+                
+                # Handle specific reference if provided
+                reference = options.get("reference")
+                html_content = xml_processor.transform_to_html(xml_content, reference)
+            else:
+                # Use the XML service directly for EnhancedURN objects
+                html_content = self.xml_service.transform_to_html(urn, options.get("reference"))
+        except Exception as e:
+            logger.error(f"Error transforming XML to HTML: {e}")
+            raise
 
         # Add HTML boilerplate
         template = templates.get_template("export_html.jinja2")

@@ -51,7 +51,7 @@ async def read_text(request: Request, path: str):
         HTMLResponse: Formatted text for display
     """
     try:
-        xml_processor = XMLProcessorService()
+        xml_processor = get_xml_processor()
         xml_content = xml_processor.load_xml_from_path(path)
         
         # Get reference from query params if present
@@ -83,6 +83,7 @@ async def read_text(request: Request, path: str):
                             "path": path,
                             "archived": edition_data.get("archived", False),
                             "favorite": edition_data.get("favorite", False),
+                            "urn": edition_data.get("urn", f"urn:cts:{author_id}:{work_id}:{edition_id}")
                         }
                         break
                 
@@ -101,25 +102,34 @@ async def read_text(request: Request, path: str):
                                 "path": path,
                                 "archived": trans_data.get("archived", False),
                                 "favorite": trans_data.get("favorite", False),
+                                "urn": trans_data.get("urn", f"urn:cts:{author_id}:{work_id}:{trans_id}")
                             }
                             break
         
         if reference:
-            # Handle reference display
-            references = xml_processor.get_references(xml_content)
+            # Get adjacent references for navigation
+            adjacent_refs = xml_processor.get_adjacent_references(xml_content, reference)
+            prev_ref = adjacent_refs.get("prev")
+            next_ref = adjacent_refs.get("next")
+            
+            # Format the specific reference
+            formatted_text = xml_processor.transform_to_html(xml_content, reference)
+            
             return templates.TemplateResponse(
                 "reader.html",
                 {
                     "request": request,
                     "text": text_metadata,
-                    "content": references,
+                    "content": formatted_text,
                     "path": path,
                     "title": text_metadata.get("label") if text_metadata else path,
                     "current_ref": reference,
+                    "prev_ref": prev_ref,
+                    "next_ref": next_ref,
                 },
             )
         
-        # Format XML for display
+        # Format entire XML for display
         formatted_text = xml_processor.format_xml_for_display(xml_content)
         
         # Render the reader template
@@ -187,3 +197,18 @@ async def get_references(path: str, xml_processor: XMLProcessorService = Depends
         return HTMLResponse(
             content=f'<div class="text-red-500">Error loading references: {str(e)}</div>', status_code=500
         )
+
+
+# Add a compatibility route for the old references API format
+@router.get("/api/v2/references/{path:path}", response_model=None)
+async def get_references_v2(path: str, xml_processor: XMLProcessorService = Depends(get_xml_processor)):
+    """Compatibility route for the old references API format.
+
+    Args:
+        path: The path to the text file from the catalog
+        xml_processor: XMLProcessorService instance
+
+    Returns:
+        HTML with references
+    """
+    return await get_references(path, xml_processor)
