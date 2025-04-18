@@ -196,17 +196,18 @@ async def get_passage(
     if not text:
         raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
 
-    try:
-        # Get the actual content path
-        if not text.path:
-            raise HTTPException(status_code=404, detail=f"No path found for text: {text_id}")
+    # Get the actual content path
+    if not text.path:
+        raise HTTPException(status_code=404, detail=f"No path found for text: {text_id}")
 
+    try:
         # Load and process the document
         xml_root = xml_service.load_xml_from_path(text.path)
         
         # Get the specific passage
         passage = xml_service.get_passage_by_reference(xml_root, reference)
         if not passage:
+            logger.error(f"Reference not found: {reference}")
             raise HTTPException(status_code=404, detail=f"Reference not found: {reference}")
         
         # Transform the passage to HTML
@@ -227,6 +228,8 @@ async def get_passage(
                 "next_ref": adjacent_refs["next"],
             },
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Error processing passage: {e}")
         raise HTTPException(status_code=500, detail=f"Error processing passage: {str(e)}")

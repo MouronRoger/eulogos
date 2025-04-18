@@ -61,10 +61,16 @@ def mock_xml_service():
     
     # Create proper Element objects for references
     def create_mock_element(text="Test content", tag="{http://www.tei-c.org/ns/1.0}div", **attrs):
-        element = Element(tag)
+        element = MagicMock()
+        element.tag = tag
         element.text = text
-        for key, value in attrs.items():
-            element.set(key, value)
+        element.tail = None
+        element.attrib = attrs
+        element.__iter__.return_value = iter([])
+        element.get = lambda key, default=None: attrs.get(key, default)
+        element.find = lambda _: None
+        element.findall = lambda _: []
+        element.items = lambda: list(attrs.items())
         return element
     
     # Mock XML root
@@ -94,7 +100,7 @@ def mock_xml_service():
     
     # Mock adjacent references with proper handling
     def get_adjacent(root, ref):
-        ref_keys = list(references.keys())
+        ref_keys = sorted(list(references.keys()))
         try:
             idx = ref_keys.index(ref)
             prev_ref = ref_keys[idx - 1] if idx > 0 else None

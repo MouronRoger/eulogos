@@ -1,6 +1,7 @@
 """Integration tests for ID-based endpoints."""
 
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
+from xml.etree.ElementTree import Element
 
 import pytest
 from fastapi.testclient import TestClient
@@ -38,11 +39,43 @@ def mock_catalog_service():
 def mock_xml_service():
     """Create a mock XML service."""
     service = Mock(spec=XMLProcessorService)
-    service.load_xml_from_path.return_value = Mock()
+    
+    # Create a proper mock for XML element
+    def create_mock_element(text="Test content", tag="{http://www.tei-c.org/ns/1.0}div", **attrs):
+        element = MagicMock()
+        element.tag = tag
+        element.text = text
+        element.tail = None
+        element.attrib = attrs
+        element.__iter__.return_value = iter([])
+        element.get = lambda key, default=None: attrs.get(key, default)
+        element.find = lambda _: None
+        element.findall = lambda _: []
+        element.items = lambda: list(attrs.items())
+        return element
+    
+    # Create root element
+    root = create_mock_element()
+    service.load_xml_from_path.return_value = root
+    
+    # Mock HTML transformation
     service.transform_to_html.return_value = "<div>Test content</div>"
-    service.get_passage_by_reference.return_value = Mock()
-    service.extract_references.return_value = {"1": Mock(), "1.1": Mock(), "1.2": Mock()}
+    service._process_element_to_html.return_value = "<div>Test content</div>"
+    
+    # Create references dictionary with proper structure
+    refs = {}
+    for ref in ["1", "1.1", "1.2"]:
+        element = create_mock_element(f"Content for {ref}", n=ref)
+        refs[ref] = element
+    service.extract_references.return_value = refs
+    
+    # Mock passage retrieval
+    def get_passage_by_reference(root, ref):
+        return refs.get(ref)
+    service.get_passage_by_reference.side_effect = get_passage_by_reference
+    
     service.get_adjacent_references.return_value = {"prev": "1.1", "next": "1.3"}
+    
     return service
 
 
