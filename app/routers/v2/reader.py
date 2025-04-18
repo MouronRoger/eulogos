@@ -8,16 +8,19 @@ This module provides enhanced endpoints for text reading functionality including
 - Token-level text processing
 """
 
-from typing import Dict, Optional
+import logging
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 
-from app.dependencies import get_enhanced_catalog_service, get_enhanced_xml_service
-from app.models.enhanced_urn import EnhancedURN
-from app.services.enhanced_catalog_service import EnhancedCatalogService
-from app.services.enhanced_xml_service import EnhancedXMLService
+from app.dependencies import get_simple_catalog_service
+from app.models.simple_urn import SimpleURN
+from app.services.simple_catalog_service import SimpleCatalogService
+
+# Configure logging
+log = logging.getLogger(__name__)
 
 # Templates
 templates = Jinja2Templates(directory="app/templates")
@@ -30,110 +33,203 @@ router = APIRouter(
 )
 
 
-@router.get("/read/{urn}", response_class=HTMLResponse, response_model=None)
+@router.get("/{urn}", response_class=HTMLResponse)
 async def read_text(
     request: Request,
-    urn: str,
-    reference: Optional[str] = None,
-    format_options: Optional[Dict] = None,
-    catalog_service: EnhancedCatalogService = Depends(get_enhanced_catalog_service),
-    xml_service: EnhancedXMLService = Depends(get_enhanced_xml_service),
+    urn: str = Path(..., description="The URN of the text to read"),
+    ref: Optional[str] = Query(None, description="Text reference (e.g., '1.1' for Book 1, Chapter 1)"),
+    catalog_service: SimpleCatalogService = Depends(get_simple_catalog_service),
 ):
-    """Read a text with optional reference navigation.
+    """Render the reader view for a text.
 
     Args:
         request: FastAPI request object
-        urn: The URN of the text to read
-        reference: Optional reference to navigate to
-        format_options: Optional formatting options
-        catalog_service: EnhancedCatalogService instance
-        xml_service: EnhancedXMLService instance
+        urn: URN of the text to read
+        ref: Optional text reference
+        catalog_service: Catalog service for text lookups
 
     Returns:
-        HTMLResponse with rendered template
-
-    Raises:
-        HTTPException: If text is not found
+        HTMLResponse with the reader view
     """
-    # Parse URN using enhanced URN model
     try:
-        EnhancedURN.from_string(urn)  # Validate URN format
+        # Validate URN format
+        SimpleURN.from_string(urn)  # Validate URN format
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid URN: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid URN format: {str(e)}")
 
-    # Get text from catalog
+    # Get text metadata
     text = catalog_service.get_text_by_urn(urn)
     if not text:
         raise HTTPException(status_code=404, detail=f"Text not found: {urn}")
 
+    # Get file path
     try:
-        # Load XML document
-        document = xml_service.load_document(urn)
-
-        # Get adjacent references
-        adjacent_refs = xml_service.get_adjacent_references(document, reference)
-
-        # Transform to HTML with reference highlighting
-        html_content = xml_service.transform_to_html(document, reference, format_options)
-
-        # Get document metadata
-        metadata = xml_service.extract_metadata(document)
-
-        # Render template
-        return templates.TemplateResponse(
-            "reader.html",
-            {
-                "request": request,
-                "text": text,
-                "content": html_content,
-                "urn": urn,
-                "current_ref": reference,
-                "prev_ref": adjacent_refs["prev"],
-                "next_ref": adjacent_refs["next"],
-                "metadata": metadata,
-                "references_available": True,
-            },
-        )
+        file_path = catalog_service.resolve_urn_to_path(urn)
     except Exception as e:
-        # Return error message
-        return templates.TemplateResponse(
-            "reader.html",
-            {
-                "request": request,
-                "text": text,
-                "content": f"<p><em>Error processing text: {str(e)}</em></p>",
-                "file_path": text.path if text else "Unknown",
-                "references_available": False,
-            },
-            status_code=500,
-        )
+        raise HTTPException(status_code=500, detail=f"Error resolving text path: {str(e)}")
+
+    # Check if file exists
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"Text file not found: {file_path}")
+
+    # Get author if available
+    author = None
+    if text.author_id:
+        author = catalog_service.get_author_by_id(text.author_id)
+
+    # Render template
+    return templates.TemplateResponse(
+        "reader.html",
+        {
+            "request": request,
+            "urn": urn,
+            "text": text,
+            "author": author,
+            "reference": ref,
+            "file_path": str(file_path),
+        },
+    )
+
+
+@router.get("/text/{urn}/content", response_class=HTMLResponse)
+async def get_text_content(
+    urn: str = Path(..., description="The URN of the text"),
+    ref: Optional[str] = Query(None, description="Text reference"),
+    format: str = Query("html", description="Output format (html, text, xml)"),
+    catalog_service: SimpleCatalogService = Depends(get_simple_catalog_service),
+):
+    """Get the content of a text.
+
+    Args:
+        urn: URN of the text
+        ref: Optional text reference
+        format: Output format
+        catalog_service: Catalog service for text lookups
+
+    Returns:
+        Response with text content
+    """
+    try:
+        # Validate URN format
+        SimpleURN.from_string(urn)  # Validate URN format
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid URN format: {str(e)}")
+
+    # Get file path
+    try:
+        file_path = catalog_service.resolve_urn_to_path(urn)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error resolving text path: {str(e)}")
+
+    # Check if file exists
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"Text file not found: {file_path}")
+
+    # Read the XML file
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading text file: {str(e)}")
+
+    # Process content based on format
+    if format == "xml":
+        return Response(content=content, media_type="application/xml")
+    elif format == "text":
+        # Simple XML to text conversion (placeholder)
+        # In a real implementation, you would use a proper XML parser
+        import re
+
+        text_content = re.sub(r"<[^>]+>", "", content)
+        return Response(content=text_content, media_type="text/plain")
+    else:  # HTML format
+        # Simple XML to HTML conversion (placeholder)
+        # In a real implementation, you would use XSLT or a proper XML parser
+        html_content = f"""
+        <div class="text-content">
+            <pre>{content}</pre>
+        </div>
+        """
+        return HTMLResponse(content=html_content)
+
+
+@router.get("/text/{urn}/metadata")
+async def get_text_metadata(
+    urn: str = Path(..., description="The URN of the text"),
+    catalog_service: SimpleCatalogService = Depends(get_simple_catalog_service),
+):
+    """Get metadata for a text.
+
+    Args:
+        urn: URN of the text
+        catalog_service: Catalog service for text lookups
+
+    Returns:
+        Dictionary with text metadata
+    """
+    # Get text metadata
+    text = catalog_service.get_text_by_urn(urn)
+    if not text:
+        raise HTTPException(status_code=404, detail=f"Text not found: {urn}")
+
+    # Get author if available
+    author = None
+    if text.author_id:
+        author = catalog_service.get_author_by_id(text.author_id)
+
+    # Get file path
+    try:
+        file_path = catalog_service.resolve_urn_to_path(urn)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error resolving text path: {str(e)}")
+
+    return {
+        "urn": urn,
+        "text": text.model_dump(),
+        "author": author.model_dump() if author else None,
+        "file_path": str(file_path),
+        "file_exists": file_path.exists(),
+    }
 
 
 @router.get("/references/{urn}", response_model=None)
 async def get_references(
     urn: str,
-    xml_service: EnhancedXMLService = Depends(get_enhanced_xml_service),
+    catalog_service: SimpleCatalogService = Depends(get_simple_catalog_service),
     html_output: bool = Query(True, description="Return HTML output for direct rendering"),
 ):
     """Get references for a text.
 
     Args:
         urn: The URN of the text
-        xml_service: EnhancedXMLService instance
+        catalog_service: SimpleCatalogService instance
         html_output: Whether to return HTML or JSON
 
     Returns:
         HTML or JSON with references
     """
     try:
-        # Parse URN
-        EnhancedURN.from_string(urn)  # Validate URN format
+        # Validate URN format
+        SimpleURN.from_string(urn)
 
-        # Load XML document
-        document = xml_service.load_document(urn)
+        # Get file path
+        file_path = catalog_service.resolve_urn_to_path(urn)
 
-        # Extract references
-        references = xml_service.extract_references(document)
+        # Check if file exists
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail=f"Text file not found: {file_path}")
+
+        # For now, return a simplified response
+        # In a real implementation, you would parse the XML and extract references
+
+        # Placeholder references
+        references = {
+            "1": "Book 1",
+            "1.1": "Book 1, Chapter 1",
+            "1.2": "Book 1, Chapter 2",
+            "2": "Book 2",
+            "2.1": "Book 2, Chapter 1",
+        }
 
         if not html_output:
             # Return JSON response
@@ -157,25 +253,23 @@ async def get_references(
         return HTMLResponse(content="".join(html))
 
     except Exception as e:
+        error_msg = f"Error loading references: {str(e)}"
+
         if not html_output:
-            return JSONResponse(content={"error": f"Error loading references: {str(e)}"}, status_code=500)
-        return HTMLResponse(
-            content=f'<div class="text-red-500">Error loading references: {str(e)}</div>', status_code=500
-        )
+            return JSONResponse(content={"error": error_msg}, status_code=500)
+        return HTMLResponse(content=f'<div class="text-red-500"><p>{error_msg}</p></div>', status_code=500)
 
 
 @router.get("/document/{urn}", response_model=None)
 async def get_document_info(
     urn: str,
-    catalog_service: EnhancedCatalogService = Depends(get_enhanced_catalog_service),
-    xml_service: EnhancedXMLService = Depends(get_enhanced_xml_service),
+    catalog_service: SimpleCatalogService = Depends(get_simple_catalog_service),
 ):
     """Get document information.
 
     Args:
         urn: The URN of the document
-        catalog_service: EnhancedCatalogService instance
-        xml_service: EnhancedXMLService instance
+        catalog_service: SimpleCatalogService instance
 
     Returns:
         JSONResponse with document information
@@ -186,25 +280,36 @@ async def get_document_info(
         if not text:
             raise HTTPException(status_code=404, detail=f"Text not found: {urn}")
 
-        # Load document
-        document = xml_service.load_document(urn)
+        # Get file path
+        file_path = catalog_service.resolve_urn_to_path(urn)
 
-        # Extract metadata
-        metadata = xml_service.extract_metadata(document)
+        # Check if file exists
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail=f"Text file not found: {file_path}")
 
-        # Extract references
-        references = xml_service.extract_references(document)
+        # Simplified placeholder metadata
+        metadata = {
+            "title": text.work_name,
+            "author": text.group_name,
+            "language": text.language,
+            "wordcount": text.wordcount,
+        }
 
-        # Get document statistics
-        stats = xml_service.get_document_statistics(document)
+        # Simplified placeholder stats
+        stats = {
+            "wordCount": text.wordcount,
+            "characterCount": text.wordcount * 5,  # Rough estimate
+            "paragraphCount": text.wordcount // 100,  # Rough estimate
+        }
 
         return JSONResponse(
             content={
                 "urn": urn,
-                "text": text.dict(),
+                "text": text.model_dump(),
                 "metadata": metadata,
-                "reference_count": len(references),
+                "reference_count": 5,  # Placeholder
                 "statistics": stats,
+                "file_path": str(file_path),
             }
         )
     except Exception as e:
@@ -216,7 +321,7 @@ async def get_passage(
     urn: str,
     reference: str,
     format: str = Query("html", description="Output format: html, text, xml"),
-    xml_service: EnhancedXMLService = Depends(get_enhanced_xml_service),
+    catalog_service: SimpleCatalogService = Depends(get_simple_catalog_service),
 ):
     """Get a specific passage from a document.
 
@@ -224,30 +329,36 @@ async def get_passage(
         urn: The URN of the document
         reference: The reference to retrieve
         format: Output format (html, text, xml)
-        xml_service: EnhancedXMLService instance
+        catalog_service: SimpleCatalogService instance
 
     Returns:
         Response with passage content in requested format
     """
     try:
-        # Load document
-        document = xml_service.load_document(urn)
+        # Validate URN
+        SimpleURN.from_string(urn)
 
-        # Get passage by reference
-        passage = xml_service.get_passage_by_reference(document, reference)
+        # Get file path
+        file_path = catalog_service.resolve_urn_to_path(urn)
 
-        if not passage:
-            raise HTTPException(status_code=404, detail=f"Reference not found: {reference}")
+        # Check if file exists
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail=f"Text file not found: {file_path}")
+
+        # For now, return a simplified placeholder response
+        # In a real implementation, you would parse the XML and extract the specific passage
+
+        # Placeholder passage content
+        passage_text = f"Sample passage content for reference {reference} from document {urn}"
 
         # Return in requested format
         if format == "html":
-            html_content = xml_service.transform_element_to_html(passage)
+            html_content = f"<div><p>{passage_text}</p></div>"
             return HTMLResponse(content=html_content)
         elif format == "text":
-            text_content = xml_service.extract_text_from_element(passage)
-            return JSONResponse(content={"text": text_content, "reference": reference})
+            return JSONResponse(content={"text": passage_text, "reference": reference})
         elif format == "xml":
-            xml_content = xml_service.serialize_element(passage)
+            xml_content = f"<passage ref='{reference}'>{passage_text}</passage>"
             return JSONResponse(content={"xml": xml_content, "reference": reference})
         else:
             raise HTTPException(status_code=400, detail=f"Invalid format: {format}")

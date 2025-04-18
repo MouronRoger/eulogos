@@ -2,19 +2,21 @@
 
 import os
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
-from app.dependencies import get_settings
+from app.dependencies import get_settings, get_simple_catalog_service
 from app.middleware.api_monitoring import APIVersionMonitoringMiddleware
 from app.middleware.api_redirect import APIRedirectMiddleware
 from app.middleware.performance import PerformanceMiddleware
 from app.routers import admin, browse, export, reader, texts
 from app.routers.v2 import browse as browse_v2
+from app.routers.v2 import catalog as catalog_v2
+from app.routers.v2 import diagnostics as diagnostics_v2
 from app.routers.v2 import export as export_v2
 from app.routers.v2 import reader as reader_v2
 from app.routers.v2 import texts as texts_v2
@@ -98,9 +100,54 @@ app.include_router(export_v2.router, tags=["Export"])
 app.include_router(browse_v2.router, tags=["Browse"])
 app.include_router(reader_v2.router, tags=["Reader"])
 app.include_router(texts_v2.router, tags=["Texts"])
+app.include_router(catalog_v2.router, tags=["Catalog"])
+app.include_router(diagnostics_v2.router, tags=["Diagnostics"])
 
 # Configure logging
 logger.add("logs/eulogos.log", rotation="10 MB", level="INFO")
+
+
+@app.get("/check-path/{urn}")
+async def check_path(urn: str, data_path: str = Query("data"), catalog_service=Depends(get_simple_catalog_service)):
+    """Check URN to path resolution with the simplified catalog service.
+
+    Args:
+        urn: The URN to resolve
+        data_path: Base data directory
+        catalog_service: SimpleCatalogService instance
+
+    Returns:
+        JSON response with path information
+    """
+    try:
+        # Get path using the SimpleCatalogService
+        path = catalog_service.resolve_urn_to_path(urn)
+
+        # Check if file exists
+        exists = path.exists()
+        is_file = path.is_file() if exists else False
+
+        # Get URN components
+        urn_obj = catalog_service._texts_by_urn.get(urn)
+        if urn_obj:
+            components = {
+                "namespace": urn_obj.namespace,
+                "textgroup": urn_obj.textgroup,
+                "work": urn_obj.work_id,
+                "version": urn_obj.version,
+            }
+        else:
+            # Parse URN components manually if not in catalog
+            from app.models.simple_urn import SimpleURN
+
+            simple_urn = SimpleURN(value=urn)
+            components = simple_urn.get_components()
+
+        result = {"urn": urn, "components": components, "path": str(path), "exists": exists, "is_file": is_file}
+
+        return JSONResponse(content=result)
+    except Exception as e:
+        return JSONResponse(content={"error": f"Error resolving URN: {str(e)}"}, status_code=400)
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -23,14 +23,17 @@ def get_catalog_service():
     return service
 
 
-# Dependency to get XML processor service
-def get_xml_processor():
+# Dependency to get XML processor service with catalog service
+def get_xml_processor(catalog_service: CatalogService = Depends(get_catalog_service)):
     """Get instance of XML processor service.
+
+    Args:
+        catalog_service: CatalogService instance to use for path resolution
 
     Returns:
         XMLProcessorService instance
     """
-    return XMLProcessorService(data_path="data")
+    return XMLProcessorService(data_path="data", catalog_service=catalog_service)
 
 
 # Templates
@@ -74,6 +77,19 @@ async def read_text(
         raise HTTPException(status_code=404, detail=f"Text not found: {urn}")
 
     try:
+        # Simple direct path generation for debugging
+        parts = urn.split(":")
+        if len(parts) >= 4:
+            identifier = parts[3].split("#")[0]
+            id_parts = identifier.split(".")
+            if len(id_parts) >= 3:
+                textgroup = id_parts[0]
+                work = id_parts[1]
+                version = id_parts[2]
+                direct_path = f"data/{textgroup}/{work}/{textgroup}.{work}.{version}.xml"
+        else:
+            direct_path = "Unknown path format"
+
         # Load XML content
         xml_root = xml_processor.load_xml(urn_obj)
 
@@ -94,17 +110,34 @@ async def read_text(
                 "current_ref": reference,
                 "prev_ref": adjacent_refs["prev"],
                 "next_ref": adjacent_refs["next"],
+                "file_path": direct_path,  # Add file path for debugging
             },
         )
     except Exception as e:
-        # Return error message
+        # Return error message with direct path for debugging
+        direct_path = "Unknown"
+        # Simple direct path generation for debugging
+        try:
+            parts = urn.split(":")
+            if len(parts) >= 4:
+                identifier = parts[3].split("#")[0]
+                id_parts = identifier.split(".")
+                if len(id_parts) >= 3:
+                    textgroup = id_parts[0]
+                    work = id_parts[1]
+                    version = id_parts[2]
+                    direct_path = f"data/{textgroup}/{work}/{textgroup}.{work}.{version}.xml"
+        except Exception:
+            pass
+
         return templates.TemplateResponse(
             "reader.html",
             {
                 "request": request,
                 "text": text,
                 "content": f"<p><em>Error processing text: {str(e)}</em></p>",
-                "file_path": "Unknown",
+                "file_path": direct_path,  # Add direct file path for debugging
+                "urn": urn,
             },
             status_code=500,
         )

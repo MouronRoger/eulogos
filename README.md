@@ -131,6 +131,17 @@ For more detailed information about catalog maintenance, see:
 - [Catalog Maintenance Guide](docs/catalog_maintenance.md)
 - [Author Metadata Management](docs/author_metadata_management.md)
 
+## Coding Standards
+
+This project follows strict coding standards to ensure high-quality, maintainable code. All code must be written to pass linting checks on the first attempt. Please review and follow our [Coding Standards](docs/coding_standards.md) before contributing.
+
+Key points:
+- Follow Black formatting (120 character line length)
+- Use Google-style docstrings
+- All code must be type-hinted
+- Write tests for all new code
+- No linting errors allowed
+
 ## License
 
 See the LICENSE file for details.
