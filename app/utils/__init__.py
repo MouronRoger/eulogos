@@ -1,5 +1,6 @@
-"""Utilities package for Eulogos."""
+"""Utility modules for the Eulogos application."""
 
-from app.utils.urn import CtsUrn
+# Note: app.utils.urn has been removed as part of enforcing the architecture
+# where integrated_catalog.json is the single source of truth for path resolution
 
-__all__ = ["CtsUrn"]
+# Import any remaining utils here

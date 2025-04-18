@@ -55,7 +55,7 @@
         .xml-link {
             display: inline-block;
             margin-top: 5px;
-            background: #f4f4f4;
+            background: #f0f8ff;
             padding: 2px 6px;
             border-radius: 3px;
             font-size: 0.85em;
@@ -87,7 +87,7 @@
                         <br>
                         <span class="path">{{ edition.path }}</span>
                         <br>
-                        <a href="/api/xml/{{ author.id }}/{{ work.id }}/{{ edition.id }}" class="xml-link">View XML File</a>
+                        <a href="/data/{{ edition.path }}" class="xml-link">View XML</a>
                     </p>
                 </div>
                 {% endfor %}
@@ -105,7 +105,7 @@
                         <br>
                         <span class="path">{{ translation.path }}</span>
                         <br>
-                        <a href="/api/xml/{{ author.id }}/{{ work.id }}/{{ translation.id }}" class="xml-link">View XML File</a>
+                        <a href="/data/{{ translation.path }}" class="xml-link">View XML</a>
                     </p>
                 </div>
                 {% endfor %}

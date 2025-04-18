@@ -19,6 +19,17 @@ Eulogos is a web application for exploring, reading, and analyzing ancient Greek
 
 **PRs that fail linting checks will be automatically rejected.** Test your code with linters before submitting any changes. The time spent fixing linting issues significantly exceeds development time.
 
+## ⚠️ IMPORTANT: Canonical Data Access ⚠️
+
+**This repository follows a strict canonical approach to data access:**
+
+- **One Canonical Data Source**: `integrated_catalog.json` is the ONLY source of truth for all file paths
+- **One Canonical Method**: Direct path access via `/data/{path}` is the ONLY acceptable method
+- **No Path Reconstruction**: Any code attempting to reconstruct file paths through URN processing or other means MUST be replaced with direct path access
+- **No Duplicate Methods**: Alternative ways to access files are not allowed to prevent confusion and inconsistency
+
+**If you find ANY code that attempts to reconstruct data paths by any means, it MUST be replaced with direct path access.** This is a fundamental architectural principle of this repository.
+
 ## Core Architecture
 
 The repository is built around three essential components:
@@ -99,6 +110,7 @@ The application is being progressively enhanced with these priorities:
 - **No URN Processing**: The application works directly with file paths from the catalog
 - **Catalog Generation**: Only the `canonical_catalog_builder.py` script should be used
 - **Simplicity**: Avoiding unnecessary abstractions and complexity
+- **Direct Path Access**: Always use paths directly from the catalog without reconstruction
 
 ## Contributing
 
@@ -110,6 +122,7 @@ Contributions are welcome! Please follow these guidelines:
 - Follow coding standards (Black formatting, flake8, pydocstyle)
 - **Run linters locally before submitting code changes**
 - Verify that your code passes `black`, `flake8`, and `mypy` checks
+- **Use only direct path access from the integrated_catalog.json**
 
 ## Linting Commands
 

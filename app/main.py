@@ -166,34 +166,34 @@ async def get_work(author_id: str, work_id: str):
     return JSONResponse(content=works[work_id])
 
 
-@app.get("/api/xml/{author_id}/{work_id}/{edition_id}")
-async def get_xml_file(author_id: str, work_id: str, edition_id: str):
-    """Get the XML file for a specific edition."""
-    catalog = load_catalog()
+@app.get("/data/{path:path}")
+async def get_file_by_path(path: str):
+    """Get a file directly using its path from the catalog.
 
-    if author_id not in catalog:
-        raise HTTPException(status_code=404, detail=f"Author {author_id} not found")
+    This is the canonical method for accessing XML files,
+    using paths exactly as they appear in the integrated_catalog.json.
+    The integrated_catalog.json is the single source of truth for all paths.
+    """
+    # Build the full path by joining the data directory with the path
+    full_path = DATA_DIR / path
 
-    works = catalog[author_id].get("works", {})
-    if work_id not in works:
-        raise HTTPException(status_code=404, detail=f"Work {work_id} not found")
-
-    editions = works[work_id].get("editions", {})
-    if edition_id not in editions:
-        raise HTTPException(status_code=404, detail=f"Edition {edition_id} not found")
-
-    edition = editions[edition_id]
-    file_path = edition.get("path")
-
-    if not file_path:
-        raise HTTPException(status_code=404, detail="Path not found in catalog")
-
-    full_path = DATA_DIR / file_path
-
+    # Check if the file exists
     if not full_path.exists():
-        raise HTTPException(status_code=404, detail=f"File not found: {full_path}")
+        logger.error(f"File not found: {full_path}")
+        raise HTTPException(status_code=404, detail=f"File not found: {path}")
 
-    return FileResponse(full_path, media_type="application/xml")
+    # Determine the media type based on file extension
+    if path.endswith(".xml"):
+        media_type = "application/xml"
+    elif path.endswith(".json"):
+        media_type = "application/json"
+    elif path.endswith(".txt"):
+        media_type = "text/plain"
+    else:
+        media_type = "application/octet-stream"
+
+    # Return the file content
+    return FileResponse(full_path, media_type=media_type)
 
 
 @app.get("/api/paths")
@@ -221,69 +221,35 @@ async def get_all_paths():
                         }
                     )
 
-    return JSONResponse(content={"paths": paths, "count": len(paths)})
-
-
-@app.get("/api/debug/paths")
-async def debug_paths():
-    """Debug endpoint to check all paths in the catalog."""
-    catalog = load_catalog()
-    paths = []
-
-    for author_id, author_data in catalog.items():
-        works = author_data.get("works", {})
-
-        for work_id, work_data in works.items():
-            editions = work_data.get("editions", {})
-
-            for edition_id, edition_data in editions.items():
-                path = edition_data.get("path")
+            translations = work_data.get("translations", {})
+            for translation_id, translation_data in translations.items():
+                path = translation_data.get("path")
                 if path:
-                    full_path = DATA_DIR / path
-                    exists = full_path.exists()
                     paths.append(
                         {
                             "author_id": author_id,
                             "work_id": work_id,
-                            "edition_id": edition_id,
+                            "translation_id": translation_id,
                             "path": path,
-                            "full_path": str(full_path),
-                            "exists": exists,
+                            "full_path": str(DATA_DIR / path),
                         }
                     )
 
-    return JSONResponse(
-        content={"paths": paths, "count": len(paths), "missing": len([p for p in paths if not p["exists"]])}
-    )
+    return JSONResponse(content={"paths": paths, "count": len(paths)})
 
 
-@app.get("/api/debug/file/{author_id}/{work_id}/{edition_id}")
-async def debug_file(author_id: str, work_id: str, edition_id: str):
-    """Debug endpoint to check a specific file."""
-    catalog = load_catalog()
+@app.get("/api/debug/file/{path:path}")
+async def debug_file(path: str):
+    """Debug endpoint to check a specific file path.
 
-    if author_id not in catalog:
-        return JSONResponse(content={"error": f"Author {author_id} not found"}, status_code=404)
-
-    works = catalog[author_id].get("works", {})
-    if work_id not in works:
-        return JSONResponse(content={"error": f"Work {work_id} not found"}, status_code=404)
-
-    editions = works[work_id].get("editions", {})
-    if edition_id not in editions:
-        return JSONResponse(content={"error": f"Edition {edition_id} not found"}, status_code=404)
-
-    edition = editions[edition_id]
-    file_path = edition.get("path")
-
-    if not file_path:
-        return JSONResponse(content={"error": "Path not found in catalog"}, status_code=404)
-
-    full_path = DATA_DIR / file_path
+    This uses the same path format as the canonical file access method.
+    """
+    # Build the full path by joining the data directory with the path
+    full_path = DATA_DIR / path
 
     return JSONResponse(
         content={
-            "path": file_path,
+            "path": path,
             "full_path": str(full_path),
             "exists": full_path.exists(),
             "is_file": full_path.is_file() if full_path.exists() else None,
