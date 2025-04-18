@@ -33,6 +33,9 @@ def get_catalog_service() -> EnhancedCatalogService:
     # Eagerly load the catalog
     service.load_catalog()
 
+    # Create the unified catalog from the static catalog data
+    service.create_unified_catalog()
+
     return service
 
 

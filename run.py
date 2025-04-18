@@ -1,110 +1,90 @@
-#!/usr/bin/env python3
-"""Entry point script for running the Eulogos application."""
+"""Run script for Eulogos API.
+
+This script serves the Eulogos API using uvicorn.
+"""
 
 import argparse
 import os
 import sys
-import webbrowser
 from pathlib import Path
 
-import uvicorn
+from dotenv import load_dotenv
 from loguru import logger
 
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent))
 
-def parse_args() -> argparse.Namespace:
-    """Parse command line arguments.
-    
-    Returns:
-        Parsed arguments
-    """
-    parser = argparse.ArgumentParser(description="Run the Eulogos application")
+# Load environment variables from .env file if it exists
+load_dotenv()
+
+
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="Run Eulogos API")
     parser.add_argument(
-        "--host", 
-        default="127.0.0.1", 
-        help="Host address to bind to"
+        "--host", default=os.getenv("EULOGOS_HOST", "127.0.0.1"), help="Host to listen on (default: 127.0.0.1)"
+    )
+    parser.add_argument("--port", type=int, default=int(os.getenv("EULOGOS_PORT", "8000")), help="Port to listen on")
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=int(os.getenv("EULOGOS_WORKERS", "1")),
+        help="Number of worker processes",
     )
     parser.add_argument(
-        "--port", 
-        type=int, 
-        default=8000, 
-        help="Port to bind to"
+        "--reload",
+        action="store_true",
+        default=os.getenv("EULOGOS_RELOAD", "").lower() == "true",
+        help="Enable auto-reload on code changes",
     )
     parser.add_argument(
-        "--reload", 
-        action="store_true", 
-        help="Enable auto-reload on file changes"
-    )
-    parser.add_argument(
-        "--no-browser", 
-        action="store_true", 
-        help="Don't open a browser window"
-    )
-    parser.add_argument(
-        "--log-level", 
-        default="info", 
+        "--log-level",
         choices=["debug", "info", "warning", "error", "critical"],
-        help="Set the log level"
+        default=os.getenv("EULOGOS_LOG_LEVEL", "info").lower(),
+        help="Log level",
     )
-    
     return parser.parse_args()
 
 
-def setup_logger(log_level: str) -> None:
-    """Set up the logger with the specified log level.
-    
-    Args:
-        log_level: The log level to use
-    """
-    log_levels = {
-        "debug": "DEBUG",
-        "info": "INFO",
-        "warning": "WARNING",
-        "error": "ERROR",
-        "critical": "CRITICAL",
-    }
-    level = log_levels.get(log_level.lower(), "INFO")
-    
-    # Remove default logger
+def configure_logging(log_level):
+    """Configure logging."""
+    # Remove default loguru handler
     logger.remove()
-    
-    # Add console logger
-    logger.add(sys.stderr, level=level)
-    
-    # Add file logger
-    os.makedirs("logs", exist_ok=True)
-    logger.add("logs/eulogos.log", rotation="10 MB", level="DEBUG")
+
+    # Add handler for stderr with specified log level
+    logger.add(sys.stderr, level=log_level.upper())
+
+    # Add handler for file
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    logger.add(logs_dir / "eulogos.log", rotation="10 MB", level=log_level.upper())
 
 
-def main() -> None:
-    """Run the Eulogos application."""
+def main():
+    """Run the Eulogos API server."""
     args = parse_args()
-    setup_logger(args.log_level)
-    
-    logger.info(f"Starting Eulogos application")
+
+    # Configure logging
+    configure_logging(args.log_level)
+
+    logger.info("Starting Eulogos application")
     logger.info(f"Host: {args.host}")
     logger.info(f"Port: {args.port}")
     logger.info(f"Reload: {args.reload}")
-    
-    # Open browser after a short delay
-    if not args.no_browser:
-        import threading
-        import time
-        
-        def open_browser():
-            time.sleep(1.5)
-            webbrowser.open(f"http://{args.host}:{args.port}")
-        
-        threading.Thread(target=open_browser).start()
-    
-    # Run the application
+
+    # Import here to avoid circular imports
+    import uvicorn
+
+    # Run the server
     uvicorn.run(
-        "app.main:app", 
-        host=args.host, 
-        port=args.port, 
+        "app.main:app",
+        host=args.host,
+        port=args.port,
         reload=args.reload,
-        log_level=args.log_level.lower(),
+        workers=args.workers if not args.reload else 1,
+        log_level=args.log_level,
     )
 
 
 if __name__ == "__main__":
-    main() 
+    main()

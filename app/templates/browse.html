@@ -3,47 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Browse Texts - Eulogos</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <script src="https://unpkg.com/htmx.org@1.9.4" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/alpinejs@3.13.0" crossorigin="anonymous" defer></script>
+    <title>Eulogos - Browse Texts</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.5;
+            margin: 0;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1, h2, h3 {
+            margin-top: 1em;
+            color: #333;
+        }
+        .author {
+            margin-bottom: 1.5em;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 1em;
+        }
+        .work {
+            margin-left: 20px;
+            margin-bottom: 1em;
+        }
+        .editions, .translations {
+            margin-left: 40px;
+        }
+        .edition, .translation {
+            margin-bottom: 0.5em;
+        }
+        .path {
+            font-family: monospace;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .meta {
+            color: #888;
+            font-size: 0.9em;
+        }
+        .info {
+            font-style: italic;
+            color: #555;
+        }
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .xml-link {
+            display: inline-block;
+            margin-top: 5px;
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.85em;
+        }
+    </style>
 </head>
-<body class="bg-gray-50">
-    <div class="min-h-screen flex flex-col">
-        <!-- Header -->
-        <header class="bg-blue-600 text-white shadow">
-            <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center">
-                    <h1 class="text-2xl font-bold">Eulogos</h1>
-                    <nav class="flex space-x-4">
-                        <a href="/admin/catalog" class="px-3 py-1 bg-blue-700 rounded hover:bg-blue-800 text-sm">
-                            Catalog Management
-                        </a>
-                    </nav>
+<body>
+    <h1>Eulogos Text Browser</h1>
+    <p class="info">Showing {{ author_count }} authors with works from the integrated catalog</p>
+
+    {% for author in authors %}
+    <div class="author">
+        <h2>{{ author.name }}
+            <span class="meta">({{ author.id }}{% if author.century %}, {{ author.century }} century{% endif %}{% if author.type %}, {{ author.type }}{% endif %})</span>
+        </h2>
+
+        {% for work in author.works %}
+        <div class="work">
+            <h3>{{ work.title }} <span class="meta">({{ work.id }})</span></h3>
+
+            {% if work.editions %}
+            <div class="editions">
+                <h4>Editions:</h4>
+                {% for edition in work.editions %}
+                <div class="edition">
+                    <p>
+                        <strong>{{ edition.label }}</strong>
+                        <span class="meta">({{ edition.id }}, {{ edition.language }})</span>
+                        <br>
+                        <span class="path">{{ edition.path }}</span>
+                        <br>
+                        <a href="/api/xml/{{ author.id }}/{{ work.id }}/{{ edition.id }}" class="xml-link">View XML File</a>
+                    </p>
                 </div>
+                {% endfor %}
             </div>
-        </header>
+            {% endif %}
 
-        <!-- Main Content -->
-        <main class="flex-grow">
-            <div class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-                <h2 class="text-lg font-semibold mb-4">Browse Texts</h2>
-
-                <!-- Include the Author-Works Tree with auto-loading -->
-                <div hx-get="/api/v2/browse" hx-trigger="load" hx-target="this">
-                    {% include "partials/author_works_tree.html" %}
+            {% if work.translations %}
+            <div class="translations">
+                <h4>Translations:</h4>
+                {% for translation in work.translations %}
+                <div class="translation">
+                    <p>
+                        <strong>{{ translation.label }}</strong>
+                        <span class="meta">({{ translation.id }}, {{ translation.language }})</span>
+                        <br>
+                        <span class="path">{{ translation.path }}</span>
+                        <br>
+                        <a href="/api/xml/{{ author.id }}/{{ work.id }}/{{ translation.id }}" class="xml-link">View XML File</a>
+                    </p>
                 </div>
+                {% endfor %}
             </div>
-        </main>
-
-        <!-- Footer -->
-        <footer class="bg-white border-t border-gray-200">
-            <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-                <p class="text-center text-sm text-gray-500">
-                    Eulogos &copy; 2025
-                </p>
-            </div>
-        </footer>
+            {% endif %}
+        </div>
+        {% endfor %}
     </div>
+    {% endfor %}
+
+    <script>
+        // Log that the page loaded successfully
+        console.log('Browse page loaded with {{ author_count }} authors');
+    </script>
 </body>
 </html>

@@ -9,15 +9,37 @@ This module provides validation functionality including:
 """
 
 import logging
+import re
 from typing import Any, ClassVar, Dict, List, Optional
 
 from fastapi import HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from app.models.enhanced_urn import EnhancedURN
-
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+def validate_urn_format(urn: str) -> bool:
+    """Validate URN format.
+
+    Args:
+        urn: The URN string to validate
+
+    Returns:
+        bool: True if the URN format is valid
+
+    Raises:
+        ValueError: If the URN format is invalid
+    """
+    if not urn.startswith("urn:cts:"):
+        raise ValueError("URN must start with 'urn:cts:'")
+
+    # Basic pattern validation - can be enhanced if needed
+    pattern = r"^urn:cts:[a-zA-Z0-9]+:[a-zA-Z0-9]+(\.[a-zA-Z0-9\-]+)+$"
+    if not re.match(pattern, urn):
+        raise ValueError("Invalid URN format")
+
+    return True
 
 
 class ExportOptions(BaseModel):
@@ -45,7 +67,7 @@ class ValidationMiddleware:
             path_params = request.path_params
             if "urn" in path_params:
                 try:
-                    EnhancedURN(value=path_params["urn"])
+                    validate_urn_format(path_params["urn"])
                 except ValueError as e:
                     raise HTTPException(status_code=400, detail=f"Invalid URN format: {str(e)}")
 
@@ -110,10 +132,21 @@ class RequestValidators:
     """Collection of request validators."""
 
     @staticmethod
-    def validate_urn(urn: str) -> EnhancedURN:
-        """Validate URN format."""
+    def validate_urn(urn: str) -> str:
+        """Validate URN format.
+
+        Args:
+            urn: The URN string to validate
+
+        Returns:
+            str: The validated URN
+
+        Raises:
+            HTTPException: If the URN format is invalid
+        """
         try:
-            return EnhancedURN(value=urn)
+            validate_urn_format(urn)
+            return urn
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"Invalid URN format: {str(e)}")
 
@@ -131,7 +164,8 @@ class RequestValidators:
         validated_urns = []
         for urn in urns:
             try:
-                validated_urns.append(EnhancedURN(value=urn))
+                validate_urn_format(urn)
+                validated_urns.append(urn)
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=f"Invalid URN format for {urn}: {str(e)}")
 

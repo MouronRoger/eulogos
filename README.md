@@ -1,147 +1,128 @@
-# Eulogos
+# Eulogos - Ancient Greek Text Repository
 
-A web application for accessing, searching, and studying ancient Greek texts from the First 1000 Years Project.
+## Overview
 
-## Installation
+Eulogos is a web application for exploring, reading, and analyzing ancient Greek texts. It provides a simple, direct interface for accessing a comprehensive collection of texts from the First 1000 Years Project.
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/eulogos.git
-cd eulogos
+## ⚠️ IMPORTANT: Coding Standards and Linting ⚠️
 
-# Create a virtual environment (optional but recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+**ALL contributions MUST adhere to strict linting standards:**
 
-# Install dependencies
-pip install -r requirements.txt
-```
+- **Black formatting** is mandatory with 88 character line limit
+- **Flake8** linting must pass with zero errors or warnings
+- **Pydocstyle D100s** docstring conventions must be followed
+- **Type annotations** are required for all functions
+- **Consistent 4-space indentation** throughout
+- **No unused imports** or variables
+- **No uncaught exceptions** or bare except blocks
+- **Clean code only** - no commented-out code or TODOs without specific plan
 
-## Catalog Validation
+**PRs that fail linting checks will be automatically rejected.** Test your code with linters before submitting any changes. The time spent fixing linting issues significantly exceeds development time.
 
-To validate the catalog index against the data files, use the `validate_catalog.py` script:
+## Core Architecture
 
-```bash
-# Run the validation with default paths
-python app/scripts/validate_catalog.py
+The repository is built around three essential components:
 
-# Specify custom paths
-python app/scripts/validate_catalog.py --catalog /path/to/catalog_index.json --authors /path/to/author_index.json --data /path/to/data
+1. **`canonical_catalog_builder.py`** - The authoritative tool for catalog generation
+   - **Run manually only** when adding new texts or updating metadata
+   - Scans the data directory for XML files and metadata
+   - Creates a comprehensive hierarchical catalog
+   - Single source of truth for catalog generation
 
-# Save the validation results to a file
-python app/scripts/validate_catalog.py --output validation_results.json
+2. **`integrated_catalog.json`** - The static catalog file
+   - Contains complete metadata for all texts
+   - Includes direct file paths to XML documents
+   - Loaded directly by the application without additional processing
+   - Central data source for the application
 
-# Only show missing files and authors
-python app/scripts/validate_catalog.py --missing-only
+3. **`data/` directory** - Contains all text files
+   - Organized by author/work hierarchy
+   - XML files with the actual text content
+   - Referenced directly via paths in the catalog
 
-# Set the log level
-python app/scripts/validate_catalog.py --log-level debug
-```
+## Development Philosophy
 
-### Validation Options
+Eulogos follows these key principles:
 
-- `--catalog`, `-c`: Path to catalog_index.json file (default: catalog_index.json)
-- `--authors`, `-a`: Path to author_index.json file (default: author_index.json)
-- `--data`, `-d`: Path to data directory containing XML files (default: data)
-- `--output`, `-o`: Output file for validation results in JSON format
-- `--log-level`, `-l`: Set the log level (choices: debug, info, warning, error, critical; default: info)
-- `--missing-only`, `-m`: Only report missing files and authors
+- **Simplicity Over Complexity**
+  - Direct file access using paths from the catalog
+  - No unnecessary URN processing or complex abstractions
+  - Minimal, focused codebase
 
-## Creating a Unified Catalog
+- **Progressive Enhancement**
+  - Core functionality first, then additional features
+  - UI formatting and export functions are added to a stable core
+  - Modular structure for easy maintenance
 
-To merge the author index and catalog index into a unified catalog file, use the `merge_catalog.py` script:
+- **Data-Centric Approach**
+  - The catalog is the central organizing principle
+  - Simple, direct mapping from catalog entries to XML files
+  - Straightforward data flow throughout the application
 
-```bash
-# Create a unified catalog with default paths
-python app/scripts/merge_catalog.py
+## Getting Started
 
-# Specify custom paths
-python app/scripts/merge_catalog.py --catalog /path/to/catalog_index.json --authors /path/to/author_index.json --output /path/to/unified_catalog.json
+### Installation
 
-# Format the output JSON with indentation for readability
-python app/scripts/merge_catalog.py --pretty
-```
+1. Clone the repository
+2. Create a virtual environment
+3. Install dependencies: `pip install -r requirements.txt`
+4. Run the application: `python run.py`
 
-### Merge Options
+### Using the Application
 
-- `--catalog`, `-c`: Path to catalog_index.json file (default: catalog_index.json)
-- `--authors`, `-a`: Path to author_index.json file (default: author_index.json)
-- `--output`, `-o`: Output file for the unified catalog (default: unified_catalog.json)
-- `--log-level`, `-l`: Set the log level (choices: debug, info, warning, error, critical; default: info)
-- `--pretty`, `-p`: Format the output JSON with indentation for readability
+- Browse texts by author and work
+- View formatted XML content
+- Export texts in various formats (HTML, plain text)
+- Access the API for programmatic usage
 
-## Development
+## Development Roadmap
 
-### Running the Application (Not Yet Implemented)
+The application is being progressively enhanced with these priorities:
 
-```bash
-# Run the development server
-python -m uvicorn app.main:app --reload
-```
+1. **Core Functionality** (✓ Complete)
+   - Basic catalog browsing
+   - Direct XML file access
+   - Simple text display
 
-### Project Structure
+2. **Interface Improvements** (In Progress)
+   - Enhanced text formatting
+   - Improved navigation
+   - Better search capabilities
 
-```
-eulogos/
-├── app/
-│   ├── models/          # Pydantic models
-│   ├── routers/         # FastAPI routers
-│   ├── scripts/         # Utility scripts
-│   ├── services/        # Business logic
-│   ├── static/          # Static files
-│   ├── templates/       # Jinja2 templates
-│   ├── utils/           # Utility functions
-│   └── main.py          # FastAPI application
-├── data/                # Data files
-├── docs/                # Documentation
-│   ├── author_metadata_management.md  # Author metadata guide
-│   └── catalog_maintenance.md         # Catalog maintenance guide
-├── tests/               # Tests
-├── .flake8             # Flake8 configuration
-├── .pydocstyle         # Pydocstyle configuration
-├── pyproject.toml      # Black configuration
-├── requirements.txt    # Dependencies
-├── regenerate_integrated_catalog.sh  # Script to regenerate the integrated catalog
-└── README.md           # This file
-```
+3. **Export Capabilities** (Planned)
+   - Multiple export formats
+   - Batch export functionality
+   - Customization options
 
-## Catalog System
+## Technical Notes
 
-Eulogos maintains three important catalog files:
+- **No URN Processing**: The application works directly with file paths from the catalog
+- **Catalog Generation**: Only the `canonical_catalog_builder.py` script should be used
+- **Simplicity**: Avoiding unnecessary abstractions and complexity
 
-1. **catalog_index.json**: Contains information about texts, including URNs, languages, and word counts
-2. **author_index.json**: Contains author metadata (name, century, type)
-3. **integrated_catalog.json**: The comprehensive catalog that combines both sources
+## Contributing
 
-### Regenerating the Integrated Catalog
+Contributions are welcome! Please follow these guidelines:
 
-To regenerate the integrated catalog (combining author metadata with text data):
+- Maintain the simple, direct approach to file access
+- Avoid adding complex abstractions or URN processing
+- Focus on enhancing core functionality and user experience
+- Follow coding standards (Black formatting, flake8, pydocstyle)
+- **Run linters locally before submitting code changes**
+- Verify that your code passes `black`, `flake8`, and `mypy` checks
+
+## Linting Commands
 
 ```bash
-./regenerate_integrated_catalog.sh
+# Format code with Black
+black .
+
+# Check with Flake8
+flake8 .
+
+# Check type annotations
+mypy .
+
+# Run all linting checks
+./scripts/run_linting.sh
 ```
-
-This script:
-- Backs up the existing integrated catalog
-- Combines `catalog_index.json` and `author_index.json`
-- Preserves author metadata while including all texts
-- Outputs to `integrated_catalog.json`
-
-For more detailed information about catalog maintenance, see:
-- [Catalog Maintenance Guide](docs/catalog_maintenance.md)
-- [Author Metadata Management](docs/author_metadata_management.md)
-
-## Coding Standards
-
-This project follows strict coding standards to ensure high-quality, maintainable code. All code must be written to pass linting checks on the first attempt. Please review and follow our [Coding Standards](docs/coding_standards.md) before contributing.
-
-Key points:
-- Follow Black formatting (120 character line length)
-- Use Google-style docstrings
-- All code must be type-hinted
-- Write tests for all new code
-- No linting errors allowed
-
-## License
-
-See the LICENSE file for details.
