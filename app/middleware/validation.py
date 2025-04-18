@@ -27,6 +27,7 @@ class ExportOptions(BaseModel):
     include_metadata: bool = True
     custom_css: Optional[str] = None
     format: str = "html"
+    output_path: Optional[str] = None
     compression: Optional[str] = Field(
         None, description="Compression format to use (gzip, bzip2, or zip)", pattern="^(gzip|bzip2|zip)?$"
     )

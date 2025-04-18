@@ -8,7 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.dependencies import get_catalog_service, get_xml_service, get_export_service, get_current_user
+from app.dependencies import get_catalog_service, get_xml_service, get_export_service
+from app.middleware.security import get_current_user
 from app.models.catalog import Text
 from app.services.catalog_service import CatalogService
 from app.services.xml_processor_service import XMLProcessorService
@@ -33,12 +34,23 @@ def sample_text():
 def mock_catalog_service(sample_text):
     """Create a mock catalog service."""
     service = Mock(spec=CatalogService)
-    service.get_text_by_id.return_value = sample_text
+    
+    def get_text_by_id(text_id):
+        if text_id == sample_text.id:
+            return sample_text
+        if text_id == "text1":
+            return sample_text  # Return sample text for test1 as well
+        return None
+    
+    service.get_text_by_id.side_effect = get_text_by_id
     service.get_all_authors.return_value = [{
         "id": "author1",
         "name": "Test Author",
-        "works": [sample_text.id]
+        "works": [sample_text.id],
+        "century": 1,
+        "type": "ancient"
     }]
+    
     return service
 
 
@@ -73,15 +85,15 @@ def mock_xml_service():
     service.extract_references.return_value = references
     
     # Mock passage retrieval with proper reference handling
-    def get_passage(ref):
+    def get_passage_by_reference(root, ref):
         if ref in references:
             return references[ref]
         return None
     
-    service.get_passage_by_reference.side_effect = get_passage
+    service.get_passage_by_reference.side_effect = get_passage_by_reference
     
     # Mock adjacent references with proper handling
-    def get_adjacent(ref):
+    def get_adjacent(root, ref):
         ref_keys = list(references.keys())
         try:
             idx = ref_keys.index(ref)
@@ -103,7 +115,14 @@ def mock_export_service(tmp_path):
     export_path = tmp_path / "export.html"
     with open(export_path, "w") as f:
         f.write("<html><body>Test export</body></html>")
-    service.export_text.return_value = export_path
+    
+    # Mock all export methods to return the same path
+    service.export_to_html.return_value = export_path
+    service.export_to_markdown.return_value = export_path
+    service.export_to_latex.return_value = export_path
+    service.export_to_pdf.return_value = export_path
+    service.export_to_epub.return_value = export_path
+    
     return service
 
 
@@ -143,15 +162,25 @@ def test_complete_text_access_workflow(client, sample_text):
     assert "Test content" in response.text
 
 
-def test_export_workflow(client, sample_text, tmp_path):
-    """Test the export workflow."""
-    # Test export endpoint
-    response = client.post(
-        f"/api/v2/export/{sample_text.id}",
-        json={"format": "html", "output_path": str(tmp_path / "export.html")}
+async def test_export_workflow(client, mock_catalog_service, mock_xml_service, mock_export_service, sample_text):
+    """Test the complete export workflow."""
+    # First get the document
+    response = await client.get(f"/read/document/{sample_text.id}")
+    assert response.status_code == 200
+    
+    # Then request the export
+    export_format = "pdf"
+    response = await client.post(
+        f"/read/export/{sample_text.id}",
+        json={"format": export_format}
     )
     assert response.status_code == 200
-    assert (tmp_path / "export.html").exists()
+    
+    # Mock export service should have been called with correct parameters
+    mock_export_service.export_text.assert_called_once_with(
+        text_id=sample_text.id,
+        format=export_format
+    )
 
 
 def test_reference_navigation(client, sample_text):

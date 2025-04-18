@@ -275,7 +275,9 @@ async def export_single(
 ) -> Dict[str, Any]:
     """Export single text."""
     # Validate text ID and options
-    # No validation needed for text ID
+    text = catalog_service.get_text_by_id(text_id)
+    if not text:
+        raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
 
     # Create export service
     export_service = ExportService(
