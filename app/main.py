@@ -323,3 +323,127 @@ async def search_texts(request: Request, q: str = ""):
 
     # Return JSON for API requests
     return JSONResponse(content={"results": results})
+
+
+@app.get("/read/{path:path}", response_class=HTMLResponse)
+async def read_formatted_text(request: Request, path: str):
+    """Read and format XML text for display in a readable format.
+    
+    Uses the same path parameter as /data/{path} to maintain a single
+    canonical reference to the data.
+    
+    Args:
+        request: The FastAPI request object
+        path: Path to the XML file from the catalog
+    
+    Returns:
+        HTMLResponse: Formatted text in an HTML template for reading
+    """
+    # Build the full path by joining the data directory with the path
+    full_path = DATA_DIR / path
+    
+    # Check if the file exists
+    if not full_path.exists():
+        logger.error(f"File not found: {full_path}")
+        raise HTTPException(status_code=404, detail=f"File not found: {path}")
+    
+    try:
+        # Get reference from query params if present
+        reference = request.query_params.get("reference")
+        
+        # Find the text in the catalog to get metadata
+        catalog = load_catalog()
+        text_metadata = None
+        
+        # Look through the catalog to find this path
+        for author_id, author_data in catalog.items():
+            author_name = author_data.get("name", "")
+            
+            for work_id, work_data in author_data.get("works", {}).items():
+                work_title = work_data.get("title", "")
+                
+                # Check editions
+                for edition_id, edition_data in work_data.get("editions", {}).items():
+                    if edition_data.get("path") == path:
+                        text_metadata = {
+                            "id": edition_id,
+                            "work_id": work_id,
+                            "work_name": work_title,
+                            "group_name": author_name,
+                            "language": edition_data.get("language", ""),
+                            "label": edition_data.get("label", ""),
+                            "wordcount": edition_data.get("word_count"),
+                            "path": path,
+                            "archived": edition_data.get("archived", False),
+                            "favorite": edition_data.get("favorite", False),
+                        }
+                        break
+                
+                # Check translations
+                if not text_metadata:
+                    for trans_id, trans_data in work_data.get("translations", {}).items():
+                        if trans_data.get("path") == path:
+                            text_metadata = {
+                                "id": trans_id,
+                                "work_id": work_id,
+                                "work_name": work_title,
+                                "group_name": author_name,
+                                "language": trans_data.get("language", ""),
+                                "label": trans_data.get("label", ""),
+                                "wordcount": trans_data.get("word_count"),
+                                "path": path,
+                                "archived": trans_data.get("archived", False),
+                                "favorite": trans_data.get("favorite", False),
+                            }
+                            break
+        
+        # Create XML processor
+        from app.services.xml_processor import XMLProcessorService
+        xml_processor = XMLProcessorService(data_dir="data")
+        
+        # Load the XML content
+        xml_content = xml_processor.load_xml_from_path(path)
+        
+        # Handle reference-based display if specified
+        if reference:
+            references = xml_processor.get_references(xml_content, path)
+            return templates.TemplateResponse(
+                "reader.html",
+                {
+                    "request": request,
+                    "text": text_metadata,
+                    "content": references,
+                    "path": path,
+                    "title": text_metadata.get("label") if text_metadata else path,
+                    "current_ref": reference,
+                },
+            )
+        
+        # Format the XML for display
+        formatted_text = xml_processor.format_xml_for_display(xml_content)
+        
+        # Render the reader template
+        return templates.TemplateResponse(
+            "reader.html",
+            {
+                "request": request,
+                "text": text_metadata,
+                "content": formatted_text,
+                "path": path,
+                "title": text_metadata.get("label") if text_metadata else path,
+            },
+        )
+        
+    except Exception as e:
+        logger.error(f"Error processing XML: {str(e)}")
+        return templates.TemplateResponse(
+            "reader.html",
+            {
+                "request": request,
+                "text": text_metadata if text_metadata else {"path": path},
+                "content": f"<div class='error'>Error loading text: {str(e)}</div>",
+                "path": path,
+                "title": "Error",
+            },
+            status_code=500,
+        )

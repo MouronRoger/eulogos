@@ -7,11 +7,9 @@ from typing import Any, Dict, List, Optional, TypeVar
 
 from loguru import logger
 
-from app.models.urn import URN
 from app.services.catalog_service import CatalogService
 
 # Define Element type for type annotations
-# This allows using Element type in annotations without needing the internal _Element
 Element = TypeVar("Element", bound=ET.Element)
 
 
@@ -23,51 +21,16 @@ class XMLProcessorService:
 
         Args:
             data_path: Path to the data directory
-            catalog_service: Catalog service for path resolution. This MUST be provided
-                as the catalog is the single source of truth for path resolution.
-
-        Raises:
-            ValueError: If no catalog service is provided
+            catalog_service: Catalog service for path resolution
         """
         self.data_path = Path(data_path)
         self.catalog_service = catalog_service
 
-        if not catalog_service:
-            raise ValueError(
-                "XMLProcessorService requires a catalog_service. "
-                "The catalog is the single source of truth for path resolution."
-            )
-
-        logger.debug("Initialized XMLProcessorService with catalog_service and data_path={}", data_path)
-
-    def resolve_urn_to_file_path(self, urn_obj: URN) -> Path:
-        """Resolve URN to file path using catalog text object as sole source of truth.
+    def load_xml_from_path(self, path: str) -> Element:
+        """Load XML file from path.
 
         Args:
-            urn_obj: URN object
-
-        Returns:
-            Path object for the XML file
-
-        Raises:
-            FileNotFoundError: If the catalog doesn't contain the URN or path is invalid
-        """
-        # Get text by URN - this is the ONLY canonical source for paths
-        text = self.catalog_service.get_text_by_urn(urn_obj.value)
-        if not text or not hasattr(text, "path") or not text.path:
-        raise FileNotFoundError(
-                f"URN {urn_obj.value} not found in catalog or has no valid path. "
-                "All paths must be resolved through the catalog text objects."
-        )
-            
-        # Return absolute path from the canonical source
-        return Path(self.data_path) / text.path
-
-    def load_xml(self, urn_obj: URN) -> Element:
-        """Load XML file based on URN.
-
-        Args:
-            urn_obj: URN object
+            path: Path to the XML file relative to data directory
 
         Returns:
             Root XML element
@@ -75,24 +38,33 @@ class XMLProcessorService:
         Raises:
             FileNotFoundError: If the XML file is not found
         """
-        filepath = self.resolve_urn_to_file_path(urn_obj)
+        filepath = self.data_path / path
         if not filepath.exists():
             raise FileNotFoundError(f"XML file not found: {filepath}")
         return ET.parse(str(filepath)).getroot()
 
-    def extract_references(self, element: Element, parent_ref: str = "") -> Dict[str, Element]:
-        """Extract hierarchical references from TEI XML elements.
+    def extract_references(self, xml_root: Element) -> Dict[str, Element]:
+        """Extract all references from XML.
 
         Args:
-            element: XML element to extract from
-            parent_ref: Parent reference string
+            xml_root: Root XML element
 
         Returns:
-            Dictionary mapping reference strings to XML elements
+            Dictionary mapping reference strings to elements
         """
         references = {}
-        n_value = element.get("n")
+        self._extract_references_recursive(xml_root, "", references)
+        return references
 
+    def _extract_references_recursive(self, element: Element, parent_ref: str, references: Dict[str, Element]) -> None:
+        """Recursively extract references from XML.
+
+        Args:
+            element: Current XML element
+            parent_ref: Parent reference string
+            references: Dictionary to store references
+        """
+        n_value = element.get("n")
         if n_value:
             ref = f"{parent_ref}.{n_value}" if parent_ref else n_value
             references[ref] = element
@@ -100,43 +72,64 @@ class XMLProcessorService:
             ref = parent_ref
 
         for child in element:
-            child_refs = self.extract_references(child, ref)
-            references.update(child_refs)
-
-        return references
+            self._extract_references_recursive(child, ref, references)
 
     def get_passage_by_reference(self, xml_root: Element, reference: str) -> Optional[Element]:
-        """Retrieve a specific passage by its reference.
+        """Get a passage by its reference.
 
         Args:
             xml_root: Root XML element
-            reference: Reference string (e.g., "1.1.5")
+            reference: Reference string
 
         Returns:
-            XML element matching the reference or None if not found
+            Element for the reference or None if not found
         """
-        references = self.extract_references(xml_root)
-        return references.get(reference)
+        if not reference:
+            return None
 
-    def get_adjacent_references(self, xml_root: Element, current_ref: Optional[str]) -> Dict[str, Optional[str]]:
-        """Get previous and next references relative to current reference.
+        # Split reference into parts
+        ref_parts = reference.split(".")
+
+        # Start from root
+        current = xml_root
+
+        # Follow reference path
+        for part in ref_parts:
+            found = False
+            for child in current:
+                if child.get("n") == part:
+                    current = child
+                    found = True
+                    break
+            if not found:
+                return None
+
+        return current
+
+    def get_adjacent_references(self, xml_root: Element, reference: Optional[str] = None) -> Dict[str, Optional[str]]:
+        """Get adjacent references for navigation.
 
         Args:
             xml_root: Root XML element
-            current_ref: Current reference string
+            reference: Current reference
 
         Returns:
-            Dictionary with 'prev' and 'next' reference strings
+            Dictionary with prev and next references
         """
-        references = self.extract_references(xml_root)
-        ref_keys = sorted(references.keys())
-
-        if not current_ref or current_ref not in ref_keys:
+        if not reference:
             return {"prev": None, "next": None}
 
-        current_idx = ref_keys.index(current_ref)
-        prev_ref = ref_keys[current_idx - 1] if current_idx > 0 else None
-        next_ref = ref_keys[current_idx + 1] if current_idx < len(ref_keys) - 1 else None
+        # Get all references
+        references = self.extract_references(xml_root)
+        sorted_refs = sorted(references.keys())
+
+        try:
+            current_idx = sorted_refs.index(reference)
+            prev_ref = sorted_refs[current_idx - 1] if current_idx > 0 else None
+            next_ref = sorted_refs[current_idx + 1] if current_idx < len(sorted_refs) - 1 else None
+        except ValueError:
+            prev_ref = None
+            next_ref = None
 
         return {"prev": prev_ref, "next": next_ref}
 
@@ -221,42 +214,6 @@ class XMLProcessorService:
 
         html += "</div>"
         return html
-
-    def parse_urn(self, urn: str) -> Dict[str, str]:
-        """Parse a URN into its components.
-
-        Args:
-            urn: The URN to parse
-
-        Returns:
-            A dictionary with the URN components
-        """
-        result = {"namespace": None, "textgroup": None, "work": None, "version": None, "reference": None}
-
-        try:
-            # Basic URN parsing
-            parts = urn.split(":")
-            if len(parts) >= 4:
-                result["namespace"] = parts[2]
-                identifier = parts[3].split(":")[0]
-                id_parts = identifier.split(".")
-
-                if len(id_parts) >= 1:
-                    result["textgroup"] = id_parts[0]
-                if len(id_parts) >= 2:
-                    result["work"] = id_parts[1]
-                if len(id_parts) >= 3:
-                    result["version"] = id_parts[2]
-
-                # Check for reference
-                if len(parts) >= 5:
-                    result["reference"] = parts[4]
-                elif ":" in parts[3] and len(parts[3].split(":")) >= 2:
-                    result["reference"] = parts[3].split(":")[1]
-        except Exception:
-            pass
-
-        return result
 
     def extract_text_content(self, file_path: Path) -> str:
         """Extract the text content from an XML file.

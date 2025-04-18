@@ -25,6 +25,36 @@
     .leading-comfortable { line-height: 1.8; }
     .leading-relaxed { line-height: 2; }
     .leading-spacious { line-height: 2.2; }
+
+    .reader-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .reader-header {
+        margin-bottom: 20px;
+    }
+    
+    .path-info {
+        color: #666;
+        font-size: 0.9em;
+    }
+    
+    .reader-content {
+        background: #f5f5f5;
+        border-radius: 4px;
+        padding: 20px;
+    }
+    
+    .xml-formatted {
+        font-family: monospace;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-size: 14px;
+        line-height: 1.5;
+        margin: 0;
+    }
 </style>
 {% endblock %}
 
@@ -33,6 +63,17 @@
 {% endblock %}
 
 {% block content %}
+<div class="reader-container">
+    <div class="reader-header">
+        <h1>{{ title }}</h1>
+        <div class="path-info">
+            <span>Path: {{ path }}</span>
+        </div>
+    </div>
+    
+    {{ content | safe }}
+</div>
+
 <div
     x-data="{
         darkMode: false,
@@ -177,7 +218,7 @@
                 <div class="flex space-x-2">
                     {% if prev_ref %}
                     <a
-                        href="/read/{{ urn }}?reference={{ prev_ref }}"
+                        href="/data/{{ path }}?reference={{ prev_ref }}"
                         class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
                         Previous
@@ -190,7 +231,7 @@
 
                     {% if next_ref %}
                     <a
-                        href="/read/{{ urn }}?reference={{ next_ref }}"
+                        href="/data/{{ path }}?reference={{ next_ref }}"
                         class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
                         Next
