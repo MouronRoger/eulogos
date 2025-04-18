@@ -1,33 +1,47 @@
 # .cursurrules
+# These rules are ONLY for enforcing code quality in AI-generated code
+# They should NOT affect file operations or project structure
 
 [tool.cursurrules]
-# run these steps whenever Cursor generates new code...
+# Only run on AI code generation, not on every save
 on_generate = ["format", "lint", "doc"]
-# ...and again on file save
-on_save     = ["format", "lint", "doc"]
-# if any step reports a warning or error, the completion will be rejected
+on_save = []  # Removed to prevent aggressive automation
 fail_on_violation = true
 
-# 1) Black formatter
+# 1) Black formatter - keep code consistent
 [tool.cursurrules.format]
-name           = "black"
-line-length    = 88
+name = "black"
+line-length = 88
 target-version = ["py39"]
 
-# 2) Flake8 linting
+# 2) Flake8 - catch basic errors and enforce style
 [tool.cursurrules.lint.flake8]
-enabled          = true
-# avoid conflicts with Black’s spacing
-ignore           = ["E203", "W503"]
-# catch errors, complexity, unused names, plus doc‑string D1xx codes
-select           = ["E", "F", "W", "C90", "B", "D100", "D101", "D102", "D103"]
-max-line-length  = 88
-# treat any violation as “fail”
-fail_on          = "warning"
+enabled = true
+ignore = [
+    "E203",  # whitespace before ':' - black handles this
+    "W503"   # line break before binary operator - black handles this
+]
+# Focus on critical issues
+select = [
+    "E",    # errors
+    "F",    # pyflakes
+    "W",    # warnings
+    "C90",  # complexity
+    "B",    # bugbear
+    "D100", "D101", "D102", "D103"  # docstring requirements
+]
+max-line-length = 88
+fail_on = "error"  # Only fail on actual errors, not style warnings
 
-# 3) pydocstyle doc‑string checks
+# 3) pydocstyle - ensure generated code is documented
 [tool.cursurrules.lint.pydocstyle]
-enabled    = true
+enabled = true
 convention = "pep257"
-select     = ["D100", "D101", "D102", "D103"]
-fail_on    = "error"
+# Only enforce basic docstring presence
+select = [
+    "D100",  # Missing docstring in public module
+    "D101",  # Missing docstring in public class
+    "D102",  # Missing docstring in public method
+    "D103"   # Missing docstring in public function
+]
+fail_on = "error"
