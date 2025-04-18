@@ -1,5 +1,5 @@
-"""Utility modules for the app."""
+"""Utilities package for Eulogos."""
 
-from app.utils import logging, path_utils, urn
+from app.utils.urn import CtsUrn
 
-__all__ = ["logging", "urn", "path_utils"]
+__all__ = ["CtsUrn"]

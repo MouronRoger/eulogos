@@ -2,9 +2,9 @@
 
 import os
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Request
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
@@ -15,7 +15,6 @@ from app.middleware.api_redirect import APIRedirectMiddleware
 from app.middleware.performance import PerformanceMiddleware
 from app.routers import admin, browse, export, reader, texts
 from app.routers.v2 import browse as browse_v2
-from app.routers.v2 import diagnostics as diagnostics_v2
 from app.routers.v2 import export as export_v2
 from app.routers.v2 import reader as reader_v2
 from app.routers.v2 import texts as texts_v2
@@ -99,89 +98,9 @@ app.include_router(export_v2.router, tags=["Export"])
 app.include_router(browse_v2.router, tags=["Browse"])
 app.include_router(reader_v2.router, tags=["Reader"])
 app.include_router(texts_v2.router, tags=["Texts"])
-app.include_router(diagnostics_v2.router, tags=["Diagnostics"])
 
 # Configure logging
 logger.add("logs/eulogos.log", rotation="10 MB", level="INFO")
-
-
-# Simple direct URN to path function right in main.py
-def direct_urn_to_path(urn: str, data_path: str = "data") -> str:
-    """Transform a URN directly to a file path."""
-    parts = urn.split(":")
-    if len(parts) < 4:
-        return f"Invalid URN format: {urn}"
-
-    # Get the identifier (e.g., tlg0532.tlg001.perseus-grc2)
-    identifier = parts[3].split("#")[0]
-
-    # Split into components
-    id_parts = identifier.split(".")
-    if len(id_parts) < 3:
-        return f"URN missing version information: {urn}"
-
-    # Extract components
-    textgroup = id_parts[0]
-    work = id_parts[1]
-    version = id_parts[2]
-
-    # Construct the path
-    path = f"{data_path}/{textgroup}/{work}/{textgroup}.{work}.{version}.xml"
-
-    return path
-
-
-@app.get("/check-path/{urn}")
-async def check_path(urn: str, data_path: str = Query("data")):
-    """Check URN to path resolution with a simple direct approach.
-
-    Args:
-        urn: The URN to resolve
-        data_path: Base data directory
-
-    Returns:
-        JSON response with path information
-    """
-    path = direct_urn_to_path(urn, data_path)
-
-    # Check if file exists
-    exists = os.path.exists(path)
-    is_file = os.path.isfile(path) if exists else False
-
-    # Parse URN components for reference
-    parts = urn.split(":")
-    namespace = parts[2] if len(parts) >= 3 else None
-
-    identifier = parts[3].split("#")[0] if len(parts) >= 4 else None
-    id_parts = identifier.split(".") if identifier else []
-
-    textgroup = id_parts[0] if len(id_parts) >= 1 else None
-    work = id_parts[1] if len(id_parts) >= 2 else None
-    version = id_parts[2] if len(id_parts) >= 3 else None
-
-    result = {
-        "urn": urn,
-        "components": {"namespace": namespace, "textgroup": textgroup, "work": work, "version": version},
-        "path": path,
-        "exists": exists,
-        "is_file": is_file,
-    }
-
-    # Try alternate paths
-    alternates = []
-
-    if textgroup and work and version:
-        # Try without namespace directory
-        alt1 = f"{data_path}/{textgroup}/{work}/{textgroup}.{work}.{version}.xml"
-        alternates.append({"path": alt1, "exists": os.path.exists(alt1), "is_file": os.path.isfile(alt1)})
-
-        # Try with namespace directory
-        alt2 = f"{data_path}/{namespace}/{textgroup}/{work}/{textgroup}.{work}.{version}.xml"
-        alternates.append({"path": alt2, "exists": os.path.exists(alt2), "is_file": os.path.isfile(alt2)})
-
-    result["alternates"] = alternates
-
-    return JSONResponse(content=result)
 
 
 @app.get("/", response_class=HTMLResponse)

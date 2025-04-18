@@ -5,9 +5,10 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypeVar
 
+from loguru import logger
+
 from app.models.urn import URN
 from app.services.catalog_service import CatalogService
-from app.utils.path_utils import resolve_urn_to_path
 
 # Define Element type for type annotations
 # This allows using Element type in annotations without needing the internal _Element
@@ -28,18 +29,63 @@ class XMLProcessorService:
         self.catalog_service = catalog_service
 
     def resolve_urn_to_file_path(self, urn_obj: URN) -> Path:
-        """Resolve URN to file path using direct transformation.
+        """Resolve URN to file path using catalog as source of truth.
 
         Args:
             urn_obj: URN object
 
         Returns:
             Path object for the XML file
+
+        Raises:
+            FileNotFoundError: If the catalog doesn't contain the URN or path is invalid
         """
-        # Use the simplified direct transformation function
-        return resolve_urn_to_path(
-            urn=urn_obj.value, catalog_service=self.catalog_service, data_path=str(self.data_path)
+        # If catalog service is provided, use it as source of truth
+        if self.catalog_service:
+            # Get text by URN
+            text = self.catalog_service.get_text_by_urn(urn_obj.value)
+            if text and hasattr(text, "path") and text.path:
+                # Return absolute path
+                return Path(self.data_path) / text.path
+
+            # Fall back to checking if there's a path directly from the catalog service
+            path = self.catalog_service.get_path_by_urn(urn_obj.value)
+            if path:
+                return Path(self.data_path) / path
+
+        # If no catalog service or text not found, fall back to URN-based path
+        # NOTE: This fallback keeps existing behavior but logs a warning
+        logger.warning(f"Resolving URN {urn_obj.value} without catalog. This bypasses the single source of truth!")
+
+        # We're going to bypass urn_obj.get_file_path() because it might include the namespace in the path
+        # Instead, we'll construct the path directly without the namespace (e.g., greekLit)
+        if not urn_obj.textgroup or not urn_obj.work or not urn_obj.version:
+            raise ValueError(f"URN {urn_obj.value} missing required components for path resolution")
+
+        # Validate if the file exists with the expected path
+        file_path = (
+            Path(self.data_path)
+            / f"{urn_obj.textgroup}/{urn_obj.work}/{urn_obj.textgroup}.{urn_obj.work}.{urn_obj.version}.xml"
         )
+
+        if file_path.exists():
+            return file_path
+
+        # Try alternative path - the greekLit namespace might be included in the path from the catalog
+        # but not in the actual file system
+        if urn_obj.namespace:
+            alt_file_path = (
+                Path(self.data_path)
+                / urn_obj.namespace
+                / urn_obj.textgroup
+                / urn_obj.work
+                / f"{urn_obj.textgroup}.{urn_obj.work}.{urn_obj.version}.xml"
+            )
+            if alt_file_path.exists():
+                return alt_file_path
+
+        # Return the original path even if it doesn't exist, as the error will be handled by the caller
+        return file_path
 
     def load_xml(self, urn_obj: URN) -> Element:
         """Load XML file based on URN.
@@ -237,16 +283,30 @@ class XMLProcessorService:
         return result
 
     def get_file_path(self, urn: str) -> Path:
-        """Get the file path for a URN using direct transformation.
+        """Get the file path for a URN.
 
         Args:
             urn: The URN to get the file path for
 
         Returns:
             A Path object for the file
+
+        Raises:
+            ValueError: If the URN cannot be parsed
         """
-        # Simple direct URN to path transformation
-        return resolve_urn_to_path(urn=urn, catalog_service=self.catalog_service, data_path=str(self.data_path))
+        parsed = self.parse_urn(urn)
+
+        if not parsed["textgroup"] or not parsed["work"] or not parsed["version"]:
+            raise ValueError(f"Invalid URN format: {urn}")
+
+        # Construct file path based on the actual file structure
+        # The file path should be: data/tlg0532/tlg001/tlg0532.tlg001.perseus-grc2.xml
+        return (
+            self.data_path
+            / parsed["textgroup"]
+            / parsed["work"]
+            / f"{parsed['textgroup']}.{parsed['work']}.{parsed['version']}.xml"
+        )
 
     def extract_text_content(self, file_path: Path) -> str:
         """Extract the text content from an XML file.
