@@ -54,3 +54,7 @@ manifest.txt
 results.json
 data/TEItoCEX
 data/catalog.json
+
+# Obsolete and backup code - excluded from linting
+backup/
+app/scripts/obsolete/

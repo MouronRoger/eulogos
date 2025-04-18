@@ -1,47 +1,80 @@
 #!/usr/bin/env python3
-"""Script to test the integrated catalog generation with the fixed code."""
+"""Script to test the canonical catalog builder for Eulogos."""
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
-# Add the parent directory to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from app.scripts.generate_integrated_catalog import (  # noqa: E402
-    DateTimeEncoder,
-    generate_integrated_catalog,
-)
-
 
 def main():
-    """Test the integrated catalog generation."""
-    # Paths to catalog and author files
-    catalog_path = "catalog_index.json"
+    """Test the canonical catalog generation."""
+    # Paths to source files and output
+    data_dir = "data"
     author_path = "author_index.json"
-    output_path = "new_integrated_catalog.json"
+    output_path = "test_integrated_catalog.json"
 
-    print(f"Loading catalog data from {catalog_path}")
-    with open(catalog_path, "r", encoding="utf-8") as f:
-        catalog_data = json.load(f)
+    print("Testing canonical catalog builder with:")
+    print(f"- Data directory: {data_dir}")
+    print(f"- Author index: {author_path}")
+    print(f"- Output path: {output_path}")
 
-    print(f"Loading author data from {author_path}")
-    with open(author_path, "r", encoding="utf-8") as f:
-        author_data = json.load(f)
+    # Run the canonical catalog builder
+    cmd = [
+        "python3",
+        "app/scripts/canonical_catalog_builder.py",
+        f"--data-dir={data_dir}",
+        f"--output={output_path}",
+        f"--author-index={author_path}",
+        "--verbose",
+    ]
 
-    print("Generating integrated catalog")
-    catalog = generate_integrated_catalog(catalog_data, author_data, lenient=True)
+    print("Running canonical catalog builder...")
+    result = subprocess.run(cmd, capture_output=True, text=True)
 
-    # Convert to dict
-    catalog_dict = catalog.model_dump()
+    if result.returncode != 0:
+        print("Error running canonical catalog builder:")
+        print(result.stderr)
+        return 1
 
-    # Write to file
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(catalog_dict, f, indent=2, ensure_ascii=False, cls=DateTimeEncoder)
+    print(result.stdout)
 
-    print(f"Generated integrated catalog with {len(catalog.authors)} authors")
-    print(f"New catalog saved to {output_path}")
+    # Verify the output file was created
+    output_file = Path(output_path)
+    if not output_file.exists():
+        print(f"Error: Output file {output_path} was not created")
+        return 1
+
+    # Load and validate the catalog
+    print(f"Validating generated catalog: {output_path}")
+    try:
+        with open(output_path, "r", encoding="utf-8") as f:
+            catalog = json.load(f)
+
+        # Count statistics
+        author_count = len(catalog)
+        work_count = sum(len(author_data["works"]) for author_data in catalog.values())
+        edition_count = sum(
+            sum(len(work_data["editions"]) for work_data in author_data["works"].values())
+            for author_data in catalog.values()
+        )
+        translation_count = sum(
+            sum(len(work_data["translations"]) for work_data in author_data["works"].values())
+            for author_data in catalog.values()
+        )
+
+        print("Catalog validation successful!")
+        print("Generated catalog contains:")
+        print(f"- {author_count} authors")
+        print(f"- {work_count} works")
+        print(f"- {edition_count} editions")
+        print(f"- {translation_count} translations")
+
+        return 0
+    except Exception as e:
+        print(f"Error validating catalog: {e}")
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

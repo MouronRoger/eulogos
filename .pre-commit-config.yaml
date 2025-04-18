@@ -6,31 +6,56 @@ repos:
         exclude: |
             (?x)^(
                 data/.*|
-                .*\.xml
+                .*\.xml|
+                backup/.*|
+                app/scripts/obsolete/.*
             )$
     -   id: end-of-file-fixer
         exclude: |
             (?x)^(
                 data/.*|
-                .*\.xml
+                .*\.xml|
+                backup/.*|
+                app/scripts/obsolete/.*
             )$
     -   id: check-yaml
     -   id: check-added-large-files
+        exclude: |
+            (?x)^(
+                backup/.*|
+                debug_catalog\.json|
+                integrated_catalog_bak\.json
+            )$
 
 -   repo: https://github.com/psf/black
     rev: 23.3.0
     hooks:
     -   id: black
         language_version: python3
+        exclude: |
+            (?x)^(
+                backup/.*|
+                app/scripts/obsolete/.*
+            )$
 
 -   repo: https://github.com/pycqa/flake8
     rev: 6.0.0
     hooks:
     -   id: flake8
         additional_dependencies: [flake8-docstrings]
+        exclude: |
+            (?x)^(
+                backup/.*|
+                app/scripts/obsolete/.*
+            )$
 
 -   repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
     -   id: isort
         args: ["--profile", "black"]
+        exclude: |
+            (?x)^(
+                backup/.*|
+                app/scripts/obsolete/.*
+            )$
