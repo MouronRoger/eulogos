@@ -55,10 +55,10 @@ class XMLProcessorService:
         # Get text by URN - this is the ONLY canonical source for paths
         text = self.catalog_service.get_text_by_urn(urn_obj.value)
         if not text or not hasattr(text, "path") or not text.path:
-            raise FileNotFoundError(
+        raise FileNotFoundError(
                 f"URN {urn_obj.value} not found in catalog or has no valid path. "
                 "All paths must be resolved through the catalog text objects."
-            )
+        )
             
         # Return absolute path from the canonical source
         return Path(self.data_path) / text.path

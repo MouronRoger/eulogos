@@ -263,3 +263,63 @@ async def debug_file(path: str):
             "size": full_path.stat().st_size if full_path.exists() else None,
         }
     )
+
+
+@app.get("/api/v2/search")
+async def search_texts(request: Request, q: str = ""):
+    """Search for texts and authors in the catalog."""
+    catalog = load_catalog()
+    results = []
+
+    # Convert query to lowercase for case-insensitive search
+    query = q.lower()
+
+    for author_id, author_data in catalog.items():
+        author_name = author_data.get("name", "").lower()
+        author_matches = query in author_name
+
+        # Process works
+        matching_works = []
+        for work_id, work_data in author_data.get("works", {}).items():
+            work_title = work_data.get("title", "").lower()
+            work_matches = query in work_title
+
+            if work_matches or author_matches:
+                # Add matching editions
+                for edition_id, edition_data in work_data.get("editions", {}).items():
+                    matching_works.append({
+                        "id": f"{author_id}.{work_id}.{edition_id}",
+                        "title": edition_data.get("label", work_data.get("title", "")),
+                        "type": "edition",
+                        "language": edition_data.get("language", ""),
+                        "path": edition_data.get("path", ""),
+                        "author": author_data.get("name", "")
+                    })
+
+                # Add matching translations
+                for trans_id, trans_data in work_data.get("translations", {}).items():
+                    matching_works.append({
+                        "id": f"{author_id}.{work_id}.{trans_id}",
+                        "title": trans_data.get("label", work_data.get("title", "")),
+                        "type": "translation",
+                        "language": trans_data.get("language", ""),
+                        "path": trans_data.get("path", ""),
+                        "author": author_data.get("name", "")
+                    })
+
+        if matching_works:
+            results.extend(matching_works)
+
+    # Return partial template for HTMX
+    if "HX-Request" in request.headers:
+        return templates.TemplateResponse(
+            "partials/search_results.html",
+            {
+                "request": request,
+                "results": results[:10],  # Limit to top 10 results
+                "query": q
+            }
+        )
+
+    # Return JSON for API requests
+    return JSONResponse(content={"results": results})

@@ -1,0 +1,24 @@
+{% if results %}
+<div class="divide-y divide-gray-200">
+    {% for result in results %}
+    <div class="p-3 hover:bg-gray-50">
+        <a href="/read/{{ result.id }}" class="block">
+            <div class="text-sm font-medium text-gray-900">{{ result.title }}</div>
+            <div class="text-xs text-gray-500">
+                by {{ result.author }}
+                <span class="mx-1">•</span>
+                {{ result.language }}
+                <span class="mx-1">•</span>
+                {{ result.type }}
+            </div>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+    {% if query %}
+    <div class="p-3 text-sm text-gray-700">
+        No results found for "{{ query }}"
+    </div>
+    {% endif %}
+{% endif %} 

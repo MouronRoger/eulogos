@@ -29,7 +29,7 @@
 {% endblock %}
 
 {% block header_actions %}
-<a href="/" class="px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded text-white">Back to Browse</a>
+                <a href="/" class="px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded text-white">Back to Browse</a>
 {% endblock %}
 
 {% block content %}
@@ -51,25 +51,25 @@
                 <div>
                     <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ text.work_name }}</h1>
                     <div class="mt-1 text-gray-600 dark:text-gray-400">
-                        <p>Author: {{ text.group_name }}</p>
-                        <p>Language: {{ text.language }}</p>
-                        {% if text.wordcount %}
-                        <p>Word count: {{ text.wordcount }}</p>
-                        {% endif %}
+                            <p>Author: {{ text.group_name }}</p>
+                            <p>Language: {{ text.language }}</p>
+                            {% if text.wordcount %}
+                            <p>Word count: {{ text.wordcount }}</p>
+                            {% endif %}
+                        </div>
                     </div>
-                </div>
-                
+
                 <!-- Reading controls button -->
                 <div class="relative">
-                    <button
+                        <button
                         @click="showControls = !showControls"
                         class="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                     >
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
-                        </svg>
-                    </button>
-                    
+                            </svg>
+                        </button>
+
                     <!-- Reading controls dropdown -->
                     <div
                         x-show="showControls"
@@ -119,40 +119,40 @@
                                 </select>
                             </div>
                         </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            <!-- Text controls -->
+                    <!-- Text controls -->
             <div class="mt-4 flex space-x-2">
-                <button
-                    hx-post="/api/v2/texts/{{ text.urn }}/archive?archive={{ not text.archived }}"
-                    hx-target="#reader-container"
-                    class="px-2 py-1 {{ 'bg-green-600' if text.archived else 'bg-gray-600' }} text-white rounded text-sm"
-                >
-                    {{ 'Unarchive' if text.archived else 'Archive' }}
-                </button>
-                <button
-                    hx-post="/api/v2/texts/{{ text.urn }}/favorite"
-                    hx-target="#reader-container"
-                    class="px-2 py-1 {{ 'bg-yellow-600' if text.favorite else 'bg-gray-600' }} text-white rounded text-sm"
-                >
-                    {{ 'Unfavorite' if text.favorite else 'Favorite' }}
-                </button>
+                        <button
+                            hx-post="/api/v2/texts/{{ text.urn }}/archive?archive={{ not text.archived }}"
+                            hx-target="#reader-container"
+                            class="px-2 py-1 {{ 'bg-green-600' if text.archived else 'bg-gray-600' }} text-white rounded text-sm"
+                        >
+                            {{ 'Unarchive' if text.archived else 'Archive' }}
+                        </button>
+                        <button
+                            hx-post="/api/v2/texts/{{ text.urn }}/favorite"
+                            hx-target="#reader-container"
+                            class="px-2 py-1 {{ 'bg-yellow-600' if text.favorite else 'bg-gray-600' }} text-white rounded text-sm"
+                        >
+                            {{ 'Unfavorite' if text.favorite else 'Favorite' }}
+                        </button>
 
-                <!-- Export dropdown -->
+                        <!-- Export dropdown -->
                 <div class="relative">
                     <button
                         @click="showExport = !showExport"
                         class="px-2 py-1 bg-blue-600 text-white rounded text-sm"
                     >
-                        Export
-                    </button>
-                    <div
+                                Export
+                            </button>
+                            <div
                         x-show="showExport"
                         @click.away="showExport = false"
                         class="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded shadow-lg z-50"
-                    >
+                            >
                         <div class="py-1">
                             <a href="/api/v2/export/{{ text.urn }}?format=pdf" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">PDF</a>
                             <a href="/api/v2/export/{{ text.urn }}?format=epub" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">ePub</a>
@@ -162,10 +162,10 @@
                             <a href="/api/v2/export/{{ text.urn }}?format=latex" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">LaTeX</a>
                             <a href="/api/v2/export/{{ text.urn }}?format=html" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">HTML</a>
                         </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Reference navigation -->
         {% if current_ref %}

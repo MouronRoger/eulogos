@@ -451,19 +451,19 @@ class CatalogService:
                 continue
 
             # Validate that the path exists on disk
-            file_path = self.data_dir / text.path
-            if not file_path.exists():
-                logger.warning(f"Path does not exist for {text.urn}: {file_path}")
+                file_path = self.data_dir / text.path
+                if not file_path.exists():
+                    logger.warning(f"Path does not exist for {text.urn}: {file_path}")
 
     def get_path_by_urn(self, urn: str) -> Optional[str]:
         """DEPRECATED: Do not use this method for path resolution.
         
         This method bypasses the canonical path resolution through text objects.
         Use get_text_by_urn().path instead to ensure canonical path handling.
-        
+
         Args:
             urn: URN string to look up
-            
+
         Returns:
             Optional path string if found
             

@@ -80,7 +80,7 @@
     <!-- Author list -->
     <div class="flex-grow">
         <div id="author-list" class="space-y-6">
-            {% for author in authors %}
+    {% for author in authors %}
             <div class="bg-white shadow rounded-lg p-6" x-data="{ expanded: false }">
                 <div class="flex items-center justify-between cursor-pointer" @click="expanded = !expanded">
                     <h2 class="text-xl font-semibold text-gray-900">
@@ -88,7 +88,7 @@
                         <span class="text-sm text-gray-500">
                             ({{ author.id }}{% if author.century %}, {{ author.century }} century{% endif %}{% if author.type %}, {{ author.type }}{% endif %})
                         </span>
-                    </h2>
+        </h2>
                     <svg
                         class="w-6 h-6 text-gray-500 transform transition-transform"
                         :class="{ 'rotate-180': expanded }"
@@ -101,7 +101,7 @@
                 </div>
 
                 <div x-show="expanded" x-collapse>
-                    {% for work in author.works %}
+        {% for work in author.works %}
                     <div class="mt-4 pl-4 border-l-2 border-gray-200">
                         <div x-data="{ workExpanded: false }">
                             <div class="flex items-center justify-between cursor-pointer" @click="workExpanded = !workExpanded">
@@ -121,10 +121,10 @@
                             </div>
 
                             <div x-show="workExpanded" x-collapse>
-                                {% if work.editions %}
+            {% if work.editions %}
                                 <div class="mt-2 pl-4">
                                     <h4 class="text-sm font-medium text-gray-700">Editions:</h4>
-                                    {% for edition in work.editions %}
+                {% for edition in work.editions %}
                                     <div class="mt-2 p-2 bg-gray-50 rounded {% if edition.archived %}opacity-50{% endif %} {% if edition.favorite %}bg-yellow-50{% endif %}">
                                         <div class="flex items-center justify-between">
                                             <div>
@@ -147,15 +147,15 @@
                                                 </a>
                                             </div>
                                         </div>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                                {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
 
-                                {% if work.translations %}
+            {% if work.translations %}
                                 <div class="mt-4 pl-4">
                                     <h4 class="text-sm font-medium text-gray-700">Translations:</h4>
-                                    {% for translation in work.translations %}
+                {% for translation in work.translations %}
                                     <div class="mt-2 p-2 bg-gray-50 rounded {% if translation.archived %}opacity-50{% endif %} {% if translation.favorite %}bg-yellow-50{% endif %}">
                                         <div class="flex items-center justify-between">
                                             <div>
@@ -178,17 +178,17 @@
                                                 </a>
                                             </div>
                                         </div>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                                {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
-            </div>
-            {% endfor %}
+        </div>
+        {% endfor %}
         </div>
     </div>
 </div>
