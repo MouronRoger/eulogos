@@ -3,8 +3,9 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
+import xml.dom.minidom
 
 from app.services.catalog_service import CatalogService
 from app.services.xml_processor import XMLProcessorService
@@ -54,8 +55,9 @@ async def read_text(request: Request, path: str):
         xml_processor = get_xml_processor()
         xml_content = xml_processor.load_xml_from_path(path)
         
-        # Get reference from query params if present
+        # Get parameters from query params
         reference = request.query_params.get("reference")
+        raw = request.query_params.get("raw", "").lower() == "true"
         
         # Find the text in the catalog to get metadata
         catalog_service = get_catalog_service()
@@ -106,6 +108,25 @@ async def read_text(request: Request, path: str):
                             }
                             break
         
+        # If raw=true, return raw XML with pretty formatting
+        if raw:
+            # Convert XML element to string with nice formatting
+            import xml.etree.ElementTree as ET
+            raw_xml = ET.tostring(xml_content, encoding="unicode")
+            pretty_xml = xml.dom.minidom.parseString(raw_xml).toprettyxml(indent="  ")
+            # Return the raw XML content
+            return templates.TemplateResponse(
+                "reader.html",
+                {
+                    "request": request,
+                    "text": text_metadata,
+                    "content": f'<pre class="xml-formatted">{pretty_xml}</pre>',
+                    "path": path,
+                    "title": f"{text_metadata.get('label') if text_metadata else path} (Raw XML)",
+                },
+            )
+        
+        # Process with reference if provided
         if reference:
             # Get adjacent references for navigation
             adjacent_refs = xml_processor.get_adjacent_references(xml_content, reference)

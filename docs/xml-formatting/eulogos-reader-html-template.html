@@ -26,40 +26,6 @@
     .leading-relaxed { line-height: 2; }
     .leading-spacious { line-height: 2.2; }
 
-    .reader-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-    
-    .reader-header {
-        margin-bottom: 20px;
-    }
-    
-    .path-info {
-        color: #666;
-        font-size: 0.9em;
-    }
-    
-    .reader-content {
-        background: #f5f5f5;
-        border-radius: 4px;
-        padding: 20px;
-    }
-    
-    .xml-formatted {
-        font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-        font-size: 0.9rem;
-        line-height: 1.5;
-        white-space: pre-wrap;
-        padding: 1rem;
-        margin: 1rem 0;
-        background-color: #f8f8f8;
-        border: 1px solid #e0e0e0;
-        border-radius: 0.25rem;
-        overflow-x: auto;
-    }
-    
     /* TEI XML styles */
     /* Main structural elements */
     div[data-reference] {
@@ -68,137 +34,196 @@
         border-left: 3px solid #e5e7eb;
         background-color: rgba(249, 250, 251, 0.8);
     }
-    
+
     .dark-mode div[data-reference] {
         background-color: rgba(31, 41, 55, 0.8);
         border-left: 3px solid #4b5563;
     }
-    
-    /* Section numbers and headers */
+
+    /* Chapter and verse numbering */
     .section-num {
         font-weight: 600;
         color: #4b5563;
         margin-bottom: 0.5rem;
         font-size: 1.1em;
     }
-    
+
     .dark-mode .section-num {
         color: #9ca3af;
     }
-    
+
     .section-num a {
         text-decoration: none;
         color: inherit;
     }
-    
+
     .section-num a:hover {
         text-decoration: underline;
     }
-    
+
     /* Content area */
     .content {
         margin-left: 0.5rem;
     }
-    
+
     /* Paragraphs */
     p.p {
         margin-bottom: 1.25em;
         line-height: 1.7;
     }
-    
+
     /* Paragraph alignment */
     p.align\(center\) {
         text-align: center;
     }
-    
+
     p.align\(indent\) {
         text-indent: 2em;
     }
-    
+
     p.align\(right\) {
         text-align: right;
     }
-    
-    /* Headings */
-    h3.head {
-        font-size: 1.25rem;
-        font-weight: 600;
-        margin-top: 2rem;
-        margin-bottom: 1rem;
-        color: #1f2937;
+
+    /* Line numbers and breaks */
+    .lb {
+        display: block;
+        height: 1.5em;
+        position: relative;
+        margin: 0.5em 0;
     }
-    
-    .dark-mode h3.head {
-        color: #f3f4f6;
+
+    .lb::after {
+        content: attr(data-n);
+        position: absolute;
+        left: -2.5em;
+        top: 0;
+        font-size: 0.8em;
+        color: #6b7280;
+        font-style: italic;
     }
-    
-    /* Lines in poetry or verse */
+
+    /* Line in poetry or verse */
     span.line {
         display: block;
         margin-left: 2em;
         text-indent: -2em;
         line-height: 1.6;
     }
-    
-    /* Notes */
-    .note {
-        display: none;
-        background-color: #fffbeb;
-        border: 1px solid #fbbf24;
+
+    /* Page breaks */
+    .pb {
+        display: block;
+        text-align: center;
+        margin: 1.5rem 0;
         padding: 0.5rem;
-        margin: 0.5rem 0;
-        border-radius: 0.25rem;
+        border-top: 1px solid #e5e7eb;
+        border-bottom: 1px solid #e5e7eb;
+        color: #6b7280;
+        font-style: italic;
+        font-size: 0.9rem;
     }
-    
+
+    .dark-mode .pb {
+        border-color: #4b5563;
+        color: #9ca3af;
+    }
+
+    /* Critical apparatus notes */
+    .note {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin: 0.5rem 0;
+        padding-left: 1rem;
+        border-left: 2px solid #d1d5db;
+    }
+
     .dark-mode .note {
         color: #9ca3af;
         border-left-color: #6b7280;
     }
-    
+
+    .note.footnote {
+        font-size: 0.75rem;
+        background-color: #f3f4f6;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+    }
+
+    .dark-mode .note.footnote {
+        background-color: #374151;
+    }
+
+    .note.marginal {
+        float: right;
+        max-width: 12rem;
+        margin-right: -13rem;
+        padding: 0.5rem;
+        background-color: #fffbeb;
+        border: 1px solid #fef3c7;
+        border-radius: 0.25rem;
+    }
+
+    .dark-mode .note.marginal {
+        background-color: #78350f;
+        border-color: #92400e;
+    }
+
+    /* For print mode, move marginal notes to footnotes */
+    @media print {
+        .note.marginal {
+            float: none;
+            max-width: none;
+            margin: 1rem 0;
+            page-break-inside: avoid;
+        }
+    }
+
     /* Quotes */
     .quote {
         margin: 1rem 0;
-        padding-left: 1rem;
-        border-left: 3px solid #6b7280;
+        padding: 0.5rem 1rem;
+        background-color: #f3f4f6;
+        border-left: 3px solid #9ca3af;
         font-style: italic;
     }
-    
+
     .dark-mode .quote {
         background-color: #374151;
         border-left-color: #9ca3af;
     }
-    
-    /* Foreign text */
+
+    /* Foreign text (like non-Greek in a Greek text) */
     .foreign {
         font-style: italic;
     }
-    
+
     /* Bibliography entries */
     .bibl {
         font-style: normal;
         color: #4b5563;
         font-size: 0.875rem;
     }
-    
+
     .dark-mode .bibl {
         color: #9ca3af;
     }
-    
-    /* References */
+
+    /* References to other sections */
     .ref {
         color: #2563eb;
         text-decoration: none;
     }
-    
+
     .ref:hover {
         text-decoration: underline;
     }
-    
+
     .dark-mode .ref {
         color: #3b82f6;
     }
-    
-    /* Milestones */
+
+    /* Milestones (section markers) */
     .milestone {
         display: inline-block;
         position: relative;
@@ -207,7 +232,7 @@
         margin: 0 0.25em;
         vertical-align: middle;
     }
-    
+
     .milestone::after {
         content: attr(data-n);
         position: absolute;
@@ -219,98 +244,113 @@
         padding: 0.1em 0.3em;
         border-radius: 2px;
     }
-    
+
     .dark-mode .milestone::after {
         background-color: #4b5563;
         color: #e5e7eb;
     }
-    
-    /* Tokens for word-level analysis */
+
+    /* Greek tokens for word-level analysis */
     .token {
         position: relative;
+        font-family: 'SBL Greek', 'New Athena Unicode', 'GFS Porson', serif;
     }
-    
+
     .token:hover {
         background-color: rgba(209, 213, 219, 0.5);
         border-radius: 2px;
+        cursor: pointer;
     }
-    
+
     .dark-mode .token:hover {
         background-color: rgba(75, 85, 99, 0.5);
     }
 
-    /* Added styling for TEI-specific elements */
-    .reference {
-        font-weight: bold;
-        color: #2563eb;
-        margin-right: 0.5rem;
+    /* Punctuation */
+    .punct {
+        font-family: 'SBL Greek', 'New Athena Unicode', 'GFS Porson', serif;
     }
-    
-    .title {
-        font-style: italic;
+
+    /* Headings in the text */
+    h3.head {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        color: #1f2937;
     }
-    
-    .person {
-        color: #047857;
+
+    .dark-mode h3.head {
+        color: #f3f4f6;
     }
-    
-    .place {
-        color: #7c3aed;
-    }
-    
-    .date {
-        color: #b91c1c;
-    }
-    
-    .note-ref {
-        cursor: pointer;
-        color: #d97706;
-        font-size: 0.8rem;
-        vertical-align: super;
-    }
-    
-    /* Navigation controls */
-    .navigation {
+
+    /* Reference navigation controls */
+    .reference-nav {
         display: flex;
         justify-content: space-between;
         margin: 1rem 0;
+        padding: 0.5rem 0;
+        border-top: 1px solid #e5e7eb;
+        border-bottom: 1px solid #e5e7eb;
     }
-    
-    .navigation-button {
-        padding: 0.5rem 1rem;
-        background-color: #2563eb;
-        color: white;
-        border-radius: 0.25rem;
-        text-decoration: none;
+
+    .dark-mode .reference-nav {
+        border-color: #4b5563;
     }
-    
-    .navigation-button:hover {
-        background-color: #1d4ed8;
+
+    /* Token focus styles */
+    .token.selected {
+        background-color: #dbeafe;
+        border-radius: 2px;
     }
-    
-    .navigation-button[disabled] {
-        background-color: #94a3b8;
-        cursor: not-allowed;
+
+    .dark-mode .token.selected {
+        background-color: #1e3a8a;
+    }
+
+    /* Print-specific styles */
+    @media print {
+        body {
+            font-size: 11pt;
+            line-height: 1.4;
+        }
+        
+        div[data-reference] {
+            page-break-inside: avoid;
+            break-inside: avoid;
+            border-left: 0.5pt solid #bbb;
+            background-color: transparent;
+        }
+        
+        h3 {
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+        
+        .note {
+            border-left: 0.5pt solid #bbb;
+            color: #555;
+            font-size: 9pt;
+        }
+        
+        .pb {
+            border-top: 0.5pt solid #bbb;
+            border-bottom: 0.5pt solid #bbb;
+        }
+        
+        p {
+            orphans: 3;
+            widows: 3;
+        }
     }
 </style>
 {% endblock %}
 
 {% block header_actions %}
-                <a href="/" class="px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded text-white">Back to Browse</a>
+    <a href="/" class="px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded text-white">Back to Browse</a>
 {% endblock %}
 
 {% block content %}
-<div class="reader-container">
-    <div class="reader-header">
-        <h1>{{ title }}</h1>
-        <div class="path-info">
-            <span>Path: {{ path }}</span>
-        </div>
-    </div>
-    
-    {{ content | safe }}
-</div>
-
 <div
     x-data="{
         darkMode: false,
@@ -318,7 +358,9 @@
         lineHeight: 'comfortable',
         showToc: false,
         showControls: false,
-        showExport: false
+        showExport: false,
+        selectedToken: null,
+        tokenInfo: {}
     }"
     :class="{ 'dark-mode': darkMode }"
 >
@@ -329,24 +371,24 @@
                 <div>
                     <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ text.work_name }}</h1>
                     <div class="mt-1 text-gray-600 dark:text-gray-400">
-                            <p>Author: {{ text.group_name }}</p>
-                            <p>Language: {{ text.language }}</p>
-                            {% if text.wordcount %}
-                            <p>Word count: {{ text.wordcount }}</p>
-                            {% endif %}
-                        </div>
+                        <p>Author: {{ text.group_name }}</p>
+                        <p>Language: {{ text.language }}</p>
+                        {% if text.wordcount %}
+                        <p>Word count: {{ text.wordcount }}</p>
+                        {% endif %}
                     </div>
+                </div>
 
                 <!-- Reading controls button -->
                 <div class="relative">
-                        <button
+                    <button
                         @click="showControls = !showControls"
                         class="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                     >
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
-                            </svg>
-                        </button>
+                        </svg>
+                    </button>
 
                     <!-- Reading controls dropdown -->
                     <div
@@ -397,40 +439,40 @@
                                 </select>
                             </div>
                         </div>
-                            </div>
-                        </div>
                     </div>
+                </div>
+            </div>
 
-                    <!-- Text controls -->
+            <!-- Text controls -->
             <div class="mt-4 flex space-x-2">
-                        <button
-                            hx-post="/api/v2/texts/{{ text.urn }}/archive?archive={{ not text.archived }}"
-                            hx-target="#reader-container"
-                            class="px-2 py-1 {{ 'bg-green-600' if text.archived else 'bg-gray-600' }} text-white rounded text-sm"
-                        >
-                            {{ 'Unarchive' if text.archived else 'Archive' }}
-                        </button>
-                        <button
-                            hx-post="/api/v2/texts/{{ text.urn }}/favorite"
-                            hx-target="#reader-container"
-                            class="px-2 py-1 {{ 'bg-yellow-600' if text.favorite else 'bg-gray-600' }} text-white rounded text-sm"
-                        >
-                            {{ 'Unfavorite' if text.favorite else 'Favorite' }}
-                        </button>
+                <button
+                    hx-post="/api/v2/texts/{{ text.urn }}/archive?archive={{ not text.archived }}"
+                    hx-target="#reader-container"
+                    class="px-2 py-1 {{ 'bg-green-600' if text.archived else 'bg-gray-600' }} text-white rounded text-sm"
+                >
+                    {{ 'Unarchive' if text.archived else 'Archive' }}
+                </button>
+                <button
+                    hx-post="/api/v2/texts/{{ text.urn }}/favorite"
+                    hx-target="#reader-container"
+                    class="px-2 py-1 {{ 'bg-yellow-600' if text.favorite else 'bg-gray-600' }} text-white rounded text-sm"
+                >
+                    {{ 'Unfavorite' if text.favorite else 'Favorite' }}
+                </button>
 
-                        <!-- Export dropdown -->
+                <!-- Export dropdown -->
                 <div class="relative">
                     <button
                         @click="showExport = !showExport"
                         class="px-2 py-1 bg-blue-600 text-white rounded text-sm"
                     >
-                                Export
-                            </button>
-                            <div
+                        Export
+                    </button>
+                    <div
                         x-show="showExport"
                         @click.away="showExport = false"
                         class="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded shadow-lg z-50"
-                            >
+                    >
                         <div class="py-1">
                             <a href="/api/v2/export/{{ text.urn }}?format=pdf" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">PDF</a>
                             <a href="/api/v2/export/{{ text.urn }}?format=epub" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">ePub</a>
@@ -440,10 +482,10 @@
                             <a href="/api/v2/export/{{ text.urn }}?format=latex" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">LaTeX</a>
                             <a href="/api/v2/export/{{ text.urn }}?format=html" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">HTML</a>
                         </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Reference navigation -->
         {% if current_ref %}
@@ -513,6 +555,31 @@
             </div>
         </div>
 
+        <!-- Token information panel (shows when token is clicked) -->
+        <div 
+            x-show="selectedToken !== null"
+            class="border-b border-gray-200 dark:border-gray-700 p-4 bg-blue-50 dark:bg-blue-900"
+        >
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="font-medium text-gray-900 dark:text-gray-100" x-text="tokenInfo.text || ''"></h3>
+                    <div class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        <p x-show="tokenInfo.morphology">Morphology: <span x-text="tokenInfo.morphology"></span></p>
+                        <p x-show="tokenInfo.lemma">Dictionary form: <span x-text="tokenInfo.lemma"></span></p>
+                        <p x-show="tokenInfo.translation">Translation: <span x-text="tokenInfo.translation"></span></p>
+                    </div>
+                </div>
+                <button 
+                    @click="selectedToken = null" 
+                    class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
         <!-- Text content -->
         <div
             id="reader-container"
@@ -530,21 +597,49 @@
             {{ content|safe }}
         </div>
     </div>
-</div>
 
-<script>
-    // Script to handle note references
-    document.addEventListener('DOMContentLoaded', function() {
-        // Toggle note visibility when clicking on a note reference
-        document.querySelectorAll('.note-ref').forEach(function(noteRef) {
-            noteRef.addEventListener('click', function() {
-                const noteId = this.dataset.target;
-                const note = document.getElementById(noteId);
-                if (note) {
-                    note.style.display = note.style.display === 'block' ? 'none' : 'block';
-                }
+    <!-- JavaScript for token interaction -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add click handlers to tokens
+            document.querySelectorAll('.token').forEach(token => {
+                token.addEventListener('click', function(e) {
+                    const tokenText = this.getAttribute('data-token');
+                    const tokenEl = this;
+                    
+                    // Get the Alpine component instance
+                    const component = Alpine.evaluate(document.querySelector('[x-data]')).__x.$data;
+                    
+                    // Remove selected class from all tokens
+                    document.querySelectorAll('.token.selected').forEach(t => {
+                        t.classList.remove('selected');
+                    });
+                    
+                    // Add selected class to clicked token
+                    tokenEl.classList.add('selected');
+                    
+                    // Set the selected token and info in Alpine data
+                    component.selectedToken = tokenText;
+                    component.tokenInfo = {
+                        text: tokenText,
+                        // Note: In a real implementation, you would fetch this data from an API
+                        // These are placeholder values
+                        morphology: "Placeholder morphology info",
+                        lemma: "Placeholder lemma",
+                        translation: "Placeholder translation"
+                    };
+                    
+                    // In a real implementation, you would make an API call here:
+                    /*
+                    fetch(`/api/token-info/${tokenText}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            component.tokenInfo = data;
+                        });
+                    */
+                });
             });
         });
-    });
-</script>
+    </script>
+</div>
 {% endblock %}
