@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.routers.export import get_export_service
+from app.dependencies import get_catalog_service, get_xml_service
 from app.services.export_service import ExportService
 
 
@@ -23,7 +23,7 @@ def mock_export_service():
     service = MagicMock(spec=ExportService)
 
     # Mock export methods to return a path
-    for format_name in ["pdf", "epub", "mobi", "markdown", "docx", "latex", "html"]:
+    for format_name in ["pdf", "epub", "markdown", "latex", "html"]:
         method_name = f"export_to_{format_name}"
         mock_method = MagicMock(return_value=Path(f"/tmp/test_export.{format_name}"))
         setattr(service, method_name, mock_method)
@@ -34,7 +34,9 @@ def mock_export_service():
 @pytest.fixture
 def app_with_mock_service(mock_export_service):
     """Set up the app with a mock export service."""
-    app.dependency_overrides[get_export_service] = lambda: mock_export_service
+    # Using the new dependency paths directly from app.dependencies
+    app.dependency_overrides[get_catalog_service] = lambda: MagicMock()
+    app.dependency_overrides[get_xml_service] = lambda: MagicMock()
     yield app
     app.dependency_overrides = {}
 

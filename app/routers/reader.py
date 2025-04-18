@@ -1,235 +1,292 @@
-"""Router for text reading operations."""
+"""Router for text reading operations.
 
-from typing import Optional
+This module provides enhanced endpoints for text reading functionality including:
+- Text display with reference-based navigation
+- Hierarchical reference extraction and browsing
+- XML to HTML transformation with enhanced styling options
+- Metadata exposure with rich context
+- Token-level text processing
+"""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from typing import Dict, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-import xml.dom.minidom
 
+from app.dependencies import get_catalog_service, get_xml_service
 from app.services.catalog_service import CatalogService
-from app.services.xml_processor import XMLProcessorService
-
-
-# Dependency to get catalog service
-def get_catalog_service():
-    """Get instance of catalog service.
-
-    Returns:
-        CatalogService instance
-    """
-    service = CatalogService(catalog_path="integrated_catalog.json", data_dir="data")
-    service.create_unified_catalog()
-    return service
-
-
-# Dependency to get XML processor service
-def get_xml_processor():
-    """Get instance of XML processor service.
-
-    Returns:
-        XMLProcessorService instance
-    """
-    return XMLProcessorService(data_path="data")
-
+from app.services.enhanced_xml_service import EnhancedXMLService
 
 # Templates
 templates = Jinja2Templates(directory="app/templates")
 
-router = APIRouter(tags=["reader"])
+# Create router
+router = APIRouter(
+    prefix="/api/v2",
+    tags=["reader"],
+    responses={404: {"description": "Not found"}},
+)
 
 
-@router.get("/data/{path:path}", response_class=HTMLResponse)
-async def read_text(request: Request, path: str):
-    """
-    Read and format XML text for display.
-    
+@router.get("/read/{text_id}", response_class=HTMLResponse)
+async def read_text(
+    request: Request,
+    text_id: str = Path(..., description="Text ID"),
+    reference: Optional[str] = Query(None, description="Optional reference to navigate to"),
+    catalog_service: CatalogService = Depends(get_catalog_service),
+    xml_service: EnhancedXMLService = Depends(get_xml_service),
+):
+    """Read a text with optional reference.
+
     Args:
-        request: The FastAPI request object
-        path: Path to the XML file
-    
+        request: FastAPI request object
+        text_id: Text ID
+        reference: Optional reference to navigate to
+        catalog_service: CatalogService instance
+        xml_service: XML service for processing text
+
     Returns:
-        HTMLResponse: Formatted text for display
+        HTMLResponse with rendered text
     """
+    # Look up the text in the catalog
+    text = catalog_service.get_text_by_id(text_id)
+    if not text:
+        raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
+
     try:
-        xml_processor = get_xml_processor()
-        xml_content = xml_processor.load_xml_from_path(path)
+        # Get the actual content path
+        if not text.path:
+            raise HTTPException(status_code=404, detail=f"No path found for text: {text_id}")
+
+        # Load and process the document
+        xml_root = xml_service.load_xml_from_path(text.path)
         
-        # Get parameters from query params
-        reference = request.query_params.get("reference")
-        raw = request.query_params.get("raw", "").lower() == "true"
+        # Get the HTML content
+        html_content = xml_service.transform_to_html(xml_root, reference)
         
-        # Find the text in the catalog to get metadata
-        catalog_service = get_catalog_service()
-        catalog = catalog_service.get_catalog()
-        text_metadata = None
-        
-        # Look through the catalog to find this path
-        for author_id, author_data in catalog.items():
-            author_name = author_data.get("name", "")
-            
-            for work_id, work_data in author_data.get("works", {}).items():
-                work_title = work_data.get("title", "")
-                
-                # Check editions
-                for edition_id, edition_data in work_data.get("editions", {}).items():
-                    if edition_data.get("path") == path:
-                        text_metadata = {
-                            "id": edition_id,
-                            "work_id": work_id,
-                            "work_name": work_title,
-                            "group_name": author_name,
-                            "language": edition_data.get("language", ""),
-                            "label": edition_data.get("label", ""),
-                            "wordcount": edition_data.get("word_count"),
-                            "path": path,
-                            "archived": edition_data.get("archived", False),
-                            "favorite": edition_data.get("favorite", False),
-                            "urn": edition_data.get("urn", f"urn:cts:{author_id}:{work_id}:{edition_id}")
-                        }
-                        break
-                
-                # Check translations
-                if not text_metadata:
-                    for trans_id, trans_data in work_data.get("translations", {}).items():
-                        if trans_data.get("path") == path:
-                            text_metadata = {
-                                "id": trans_id,
-                                "work_id": work_id,
-                                "work_name": work_title,
-                                "group_name": author_name,
-                                "language": trans_data.get("language", ""),
-                                "label": trans_data.get("label", ""),
-                                "wordcount": trans_data.get("word_count"),
-                                "path": path,
-                                "archived": trans_data.get("archived", False),
-                                "favorite": trans_data.get("favorite", False),
-                                "urn": trans_data.get("urn", f"urn:cts:{author_id}:{work_id}:{trans_id}")
-                            }
-                            break
-        
-        # If raw=true, return raw XML with pretty formatting
-        if raw:
-            # Convert XML element to string with nice formatting
-            import xml.etree.ElementTree as ET
-            raw_xml = ET.tostring(xml_content, encoding="unicode")
-            pretty_xml = xml.dom.minidom.parseString(raw_xml).toprettyxml(indent="  ")
-            # Return the raw XML content
-            return templates.TemplateResponse(
-                "reader.html",
-                {
-                    "request": request,
-                    "text": text_metadata,
-                    "content": f'<pre class="xml-formatted">{pretty_xml}</pre>',
-                    "path": path,
-                    "title": f"{text_metadata.get('label') if text_metadata else path} (Raw XML)",
-                },
-            )
-        
-        # Process with reference if provided
-        if reference:
-            # Get adjacent references for navigation
-            adjacent_refs = xml_processor.get_adjacent_references(xml_content, reference)
-            prev_ref = adjacent_refs.get("prev")
-            next_ref = adjacent_refs.get("next")
-            
-            # Format the specific reference
-            formatted_text = xml_processor.transform_to_html(xml_content, reference)
-            
-            return templates.TemplateResponse(
-                "reader.html",
-                {
-                    "request": request,
-                    "text": text_metadata,
-                    "content": formatted_text,
-                    "path": path,
-                    "title": text_metadata.get("label") if text_metadata else path,
-                    "current_ref": reference,
-                    "prev_ref": prev_ref,
-                    "next_ref": next_ref,
-                },
-            )
-        
-        # Format entire XML for display
-        formatted_text = xml_processor.format_xml_for_display(xml_content)
-        
-        # Render the reader template
+        # Get adjacent references for navigation if a reference is provided
+        adjacent_refs = xml_service.get_adjacent_references(xml_root, reference) if reference else {"prev": None, "next": None}
+
+        # Get author if available
+        author = None
+        if text.author_id:
+            for a in catalog_service.get_all_authors():
+                if a.id == text.author_id:
+                    author = a
+                    break
+
+        # Render the template with the processed content
         return templates.TemplateResponse(
             "reader.html",
             {
                 "request": request,
-                "text": text_metadata,
-                "content": formatted_text,
-                "path": path,
-                "title": text_metadata.get("label") if text_metadata else path,
+                "text": text,
+                "author": author,
+                "content": html_content,
+                "reference": reference,
+                "prev_ref": adjacent_refs["prev"],
+                "next_ref": adjacent_refs["next"],
             },
         )
-        
     except Exception as e:
+        logger.exception(f"Error processing text: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing text: {str(e)}")
+
+
+@router.get("/document/{text_id}", response_class=JSONResponse)
+async def get_document(
+    text_id: str = Path(..., description="Text ID"),
+    catalog_service: CatalogService = Depends(get_catalog_service),
+    xml_service: EnhancedXMLService = Depends(get_xml_service),
+):
+    """Get document structure for a text.
+
+    Args:
+        text_id: Text ID
+        catalog_service: CatalogService instance
+        xml_service: XML service for processing
+
+    Returns:
+        JSONResponse with document structure
+    """
+    # Look up the text in the catalog
+    text = catalog_service.get_text_by_id(text_id)
+    if not text:
+        raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
+
+    try:
+        # Get the actual content path
+        if not text.path:
+            raise HTTPException(status_code=404, detail=f"No path found for text: {text_id}")
+
+        # Load and process the document
+        xml_root = xml_service.load_xml_from_path(text.path)
+        
+        # Get all references
+        references = xml_service.extract_references(xml_root)
+        
+        # Convert to a list of reference objects
+        ref_list = []
+        for ref, element in references.items():
+            ref_list.append({
+                "reference": ref,
+                "text": "".join(element.itertext())[:100] + "..." if len("".join(element.itertext())) > 100 else "".join(element.itertext()),
+            })
+        
+        # Sort references
+        ref_list.sort(key=lambda x: [int(n) if n.isdigit() else n for n in x["reference"].split(".")])
+        
+        return ref_list
+    except Exception as e:
+        logger.exception(f"Error processing document: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing document: {str(e)}")
+
+
+@router.get("/passage/{text_id}/{reference}", response_class=HTMLResponse)
+async def get_passage(
+    request: Request,
+    text_id: str = Path(..., description="Text ID"),
+    reference: str = Path(..., description="Reference string"),
+    catalog_service: CatalogService = Depends(get_catalog_service),
+    xml_service: EnhancedXMLService = Depends(get_xml_service),
+):
+    """Get a specific passage from a text by reference.
+
+    Args:
+        request: FastAPI request object
+        text_id: Text ID
+        reference: Reference string
+        catalog_service: CatalogService instance
+        xml_service: XML service for processing
+
+    Returns:
+        HTMLResponse with the specific passage
+    """
+    # Look up the text in the catalog
+    text = catalog_service.get_text_by_id(text_id)
+    if not text:
+        raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
+
+    try:
+        # Get the actual content path
+        if not text.path:
+            raise HTTPException(status_code=404, detail=f"No path found for text: {text_id}")
+
+        # Load and process the document
+        xml_root = xml_service.load_xml_from_path(text.path)
+        
+        # Get the specific passage
+        passage = xml_service.get_passage_by_reference(xml_root, reference)
+        if not passage:
+            raise HTTPException(status_code=404, detail=f"Reference not found: {reference}")
+        
+        # Transform the passage to HTML
+        html_content = xml_service._process_element_to_html(passage, reference)
+        
+        # Get adjacent references for navigation
+        adjacent_refs = xml_service.get_adjacent_references(xml_root, reference)
+        
+        # Render the passage template
         return templates.TemplateResponse(
-            "reader.html",
+            "partials/passage.html",
             {
                 "request": request,
-                "text": {"path": path},
-                "content": f"<div class='error'>Error loading text: {str(e)}</div>",
-                "path": path,
-                "title": "Error",
+                "text": text,
+                "content": html_content,
+                "reference": reference,
+                "prev_ref": adjacent_refs["prev"],
+                "next_ref": adjacent_refs["next"],
             },
-            status_code=500,
         )
-
-
-@router.get("/api/references/{path:path}", response_model=None)
-async def get_references(path: str, xml_processor: XMLProcessorService = Depends(get_xml_processor)):
-    """Get references for a text.
-
-    Args:
-        path: The path to the text file from the catalog
-        xml_processor: XMLProcessorService instance
-
-    Returns:
-        HTML with references
-    """
-    try:
-        # Load XML content directly from path
-        xml_root = xml_processor.load_xml_from_path(path)
-
-        # Extract references
-        references = xml_processor.extract_references(xml_root)
-
-        # Sort references naturally
-        sorted_refs = sorted(references.keys(), key=lambda x: [int(n) if n.isdigit() else n for n in x.split(".")])
-
-        # Build reference tree HTML
-        html = ['<ul class="space-y-1">']
-
-        for ref in sorted_refs:
-            html.append('<li class="hover:bg-gray-100 rounded">')
-            html.append(f'<a href="/data/{path}?reference={ref}" class="block px-2 py-1">')
-            html.append(f'<span class="font-medium">{ref}</span>')
-            html.append("</a>")
-            html.append("</li>")
-
-        html.append("</ul>")
-
-        return HTMLResponse(content="".join(html))
-
     except Exception as e:
-        return HTMLResponse(
-            content=f'<div class="text-red-500">Error loading references: {str(e)}</div>', status_code=500
-        )
+        logger.exception(f"Error processing passage: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing passage: {str(e)}")
 
 
-# Add a compatibility route for the old references API format
-@router.get("/api/v2/references/{path:path}", response_model=None)
-async def get_references_v2(path: str, xml_processor: XMLProcessorService = Depends(get_xml_processor)):
-    """Compatibility route for the old references API format.
+@router.get("/references/{text_id}", response_class=JSONResponse)
+async def get_references(
+    text_id: str = Path(..., description="Text ID"),
+    catalog_service: CatalogService = Depends(get_catalog_service),
+    xml_service: EnhancedXMLService = Depends(get_xml_service),
+):
+    """Get all references for a text.
 
     Args:
-        path: The path to the text file from the catalog
-        xml_processor: XMLProcessorService instance
+        text_id: Text ID
+        catalog_service: CatalogService instance
+        xml_service: XML service for processing
 
     Returns:
-        HTML with references
+        JSONResponse with all references
     """
-    return await get_references(path, xml_processor)
+    # Look up the text in the catalog
+    text = catalog_service.get_text_by_id(text_id)
+    if not text:
+        raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
+
+    try:
+        # Get the actual content path
+        if not text.path:
+            raise HTTPException(status_code=404, detail=f"No path found for text: {text_id}")
+
+        # Load and process the document
+        xml_root = xml_service.load_xml_from_path(text.path)
+        
+        # Get all references
+        references = xml_service.extract_references(xml_root)
+        
+        # Return just the list of reference strings
+        return {"references": sorted(references.keys(), key=lambda x: [int(n) if n.isdigit() else n for n in x.split(".")])}
+    except Exception as e:
+        logger.exception(f"Error processing references: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing references: {str(e)}")
+
+
+@router.post("/texts/{text_id}/archive")
+async def archive_text(
+    text_id: str,
+    archive: bool = Query(True, description="True to archive, False to unarchive"),
+    catalog_service: CatalogService = Depends(get_catalog_service),
+):
+    """Archive or unarchive a text.
+
+    Args:
+        text_id: Text ID
+        archive: True to archive, False to unarchive
+        catalog_service: CatalogService instance
+
+    Returns:
+        JSON response indicating success or failure
+    """
+    success = catalog_service.archive_text_by_id(text_id, archive)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
+    
+    return {"success": True, "archived": archive}
+
+
+@router.post("/texts/{text_id}/favorite")
+async def favorite_text(
+    text_id: str,
+    catalog_service: CatalogService = Depends(get_catalog_service),
+):
+    """Toggle favorite status for a text.
+
+    Args:
+        text_id: Text ID
+        catalog_service: CatalogService instance
+
+    Returns:
+        JSON response indicating success and the new favorite status
+    """
+    text = catalog_service.get_text_by_id(text_id)
+    if not text:
+        raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
+    
+    success = catalog_service.toggle_text_favorite_by_id(text_id)
+    
+    # Get the updated text to get the current favorite status
+    text = catalog_service.get_text_by_id(text_id)
+    
+    return {"success": success, "favorite": text.favorite if text else False} 

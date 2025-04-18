@@ -12,14 +12,26 @@ from app.models.catalog import Author, Text, UnifiedCatalog
 class CatalogService:
     """Service for accessing the unified catalog."""
 
-    def __init__(self, catalog_path: str = None, author_path: str = None, data_dir: str = None):
+    def __init__(
+        self, 
+        catalog_path: str = None, 
+        author_path: str = None, 
+        data_dir: str = None,
+        settings = None
+    ):
         """Initialize the catalog service.
 
         Args:
             catalog_path: Path to the catalog_index.json file
             author_path: Path to the author_index.json file
             data_dir: Path to the data directory containing the XML files
+            settings: Optional application settings
         """
+        # If settings are provided, extract paths from it
+        if settings:
+            catalog_path = catalog_path or str(settings.catalog_path)
+            data_dir = data_dir or str(settings.data_dir)
+            
         self.catalog_path = Path(catalog_path) if catalog_path else Path("catalog_index.json")
         self.author_path = Path(author_path) if author_path else None
         self.data_dir = Path(data_dir) if data_dir else Path("data")
@@ -30,13 +42,14 @@ class CatalogService:
         self._unified_catalog = None
 
         # Derived indexes
-        
         self._texts_by_id: Dict[str, Text] = {}
         self._texts_by_author: Dict[str, List[Text]] = {}
         self._texts_by_language: Dict[str, List[Text]] = {}
         self._authors_by_century: Dict[int, List[Author]] = {}
         self._authors_by_type: Dict[str, List[Author]] = {}
         self._available_languages: Set[str] = set()
+        
+        logger.debug("Initializing CatalogService with catalog_path={}, data_dir={}", catalog_path, data_dir)
 
     def load_catalog(self) -> Dict:
         """Load the catalog data from file.
@@ -75,10 +88,10 @@ class CatalogService:
 
         try:
             # Update catalog entries with current state
-            for text in self._texts_by_urn.values():
+            for text in self._texts_by_id.values():
                 # Find the corresponding entry in the catalog data
                 for entry in self._catalog_data.get("catalog", []):
-                    if entry.get("urn") == text.urn:
+                    if entry.get("id") == text.id:
                         # Update with current state of archived/favorite
                         entry["archived"] = text.archived
                         entry["favorite"] = text.favorite
@@ -241,8 +254,6 @@ class CatalogService:
             logger.error("Cannot build indexes: unified catalog not created")
             return
 
-        
-
         # Index texts by ID
         self._texts_by_id = {}
         for text in self._unified_catalog.catalog:
@@ -291,8 +302,6 @@ class CatalogService:
         """
         return self._texts_by_id.get(text_id)
 
-    
-
     def get_texts_by_author(self, author_id: str, include_archived: bool = False) -> List[Text]:
         """Get all texts by an author.
 
@@ -332,76 +341,77 @@ class CatalogService:
 
         return result
 
-    def archive_text(self, urn: str, archive: bool = True) -> bool:
-        """Archive or unarchive a text.
+    def archive_text_by_id(self, text_id: str, archive: bool = True) -> bool:
+        """Archive or unarchive a text by its ID.
 
         Args:
-            urn: The URN of the text
+            text_id: The ID of the text
             archive: True to archive, False to unarchive
 
         Returns:
             True if successful, False if the text was not found
         """
-        if urn not in self._texts_by_urn:
+        text = self.get_text_by_id(text_id)
+        if not text:
             return False
 
-        text = self._texts_by_urn[urn]
         text.archived = archive
         self._save_catalog()
         return True
 
-    def toggle_text_favorite(self, urn: str) -> bool:
-        """Toggle favorite status for a text.
+    def toggle_text_favorite_by_id(self, text_id: str) -> bool:
+        """Toggle favorite status for a text by its ID.
 
         Args:
-            urn: The URN of the text
+            text_id: The ID of the text
 
         Returns:
             True if successful, False if the text was not found
         """
-        if urn not in self._texts_by_urn:
+        text = self.get_text_by_id(text_id)
+        if not text:
             return False
 
-        text = self._texts_by_urn[urn]
         text.favorite = not text.favorite
         self._save_catalog()
         return True
 
-    def delete_text(self, urn: str) -> bool:
-        """Delete a text from the catalog.
+    def delete_text_by_id(self, text_id: str) -> bool:
+        """Delete a text from the catalog by its ID.
 
         Args:
-            urn: The URN of the text
+            text_id: The ID of the text
 
         Returns:
             True if successful, False if the text was not found
         """
-        if urn not in self._texts_by_urn:
+        text = self.get_text_by_id(text_id)
+        if not text:
             return False
 
         # Remove from catalog data
         if self._catalog_data and "catalog" in self._catalog_data:
             self._catalog_data["catalog"] = [
-                entry for entry in self._catalog_data["catalog"] if entry.get("urn") != urn
+                entry for entry in self._catalog_data["catalog"] if entry.get("id") != text_id
             ]
 
         # Remove from unified catalog
         if self._unified_catalog:
-            self._unified_catalog.catalog = [text for text in self._unified_catalog.catalog if text.urn != urn]
+            self._unified_catalog.catalog = [text_obj for text_obj in self._unified_catalog.catalog if text_obj.id != text_id]
 
         # Remove from indexes
-        text = self._texts_by_urn.pop(urn, None)
+        text = self._texts_by_id.pop(text_id, None)
 
         if text and text.author_id:
             if text.author_id in self._texts_by_author:
                 self._texts_by_author[text.author_id] = [
-                    t for t in self._texts_by_author[text.author_id] if t.urn != urn
+                    t for t in self._texts_by_author[text.author_id] if t.id != text_id
                 ]
 
         if text and text.language:
             if text.language in self._texts_by_language:
                 self._texts_by_language[text.language] = [
-                    t for t in self._texts_by_language[text.language] if t.urn != urn
+                    t for t in self._texts_by_language[text.language] if t.id != text_id
                 ]
 
         # Save changes
@@ -461,8 +471,8 @@ class CatalogService:
                 continue
 
             # Validate that the path exists on disk
-                file_path = self.data_dir / text.path
-                if not file_path.exists():
-                    logger.warning(f"Path does not exist for {text.id}: {file_path}")
+            file_path = self.data_dir / text.path
+            if not file_path.exists():
+                logger.warning(f"Path does not exist for {text.id}: {file_path}")
 
     

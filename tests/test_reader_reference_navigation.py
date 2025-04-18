@@ -6,17 +6,17 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.routers.reader import get_catalog_service, get_xml_processor
-from app.services.xml_processor_service import XMLProcessorService
+from app.dependencies import get_catalog_service, get_xml_processor_service as get_xml_processor
+from app.services.enhanced_xml_service import EnhancedXMLService
 
 
 @pytest.fixture
 def mock_xml_processor():
     """Create a mock XMLProcessorService."""
-    processor = MagicMock(spec=XMLProcessorService)
+    processor = MagicMock(spec=EnhancedXMLService)
 
     # Mock load_xml to return a mock XML root
-    processor.load_xml.return_value = MagicMock()
+    processor.load_document.return_value = MagicMock()
 
     # Mock extract_references to return a mock references dict
     references = {"1": MagicMock(), "1.1": MagicMock(), "1.2": MagicMock()}
@@ -38,8 +38,8 @@ def client(mock_xml_processor):
 
     # Also mock catalog_service to return a dummy text
     mock_catalog = MagicMock()
-    mock_catalog.get_text_by_urn.return_value = {
-        "urn": "urn:cts:greekLit:tlg0012.tlg001.perseus-grc2",
+    mock_catalog.get_text_by_id.return_value = {
+        "id": "tlg0012.tlg001.perseus-grc2",
         "group_name": "Homer",
         "work_name": "Iliad",
         "language": "grc",

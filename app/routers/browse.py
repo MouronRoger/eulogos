@@ -1,4 +1,4 @@
-"""Router for browsing texts with filtering options (v2 API).
+"""Router for browsing texts with filtering options.
 
 This module provides enhanced endpoints for text browsing functionality including:
 - Hierarchical author-works browsing with improved filtering
@@ -13,8 +13,8 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from app.dependencies import get_enhanced_catalog_service
-from app.services.enhanced_catalog_service import EnhancedCatalogService
+from app.dependencies import get_catalog_service
+from app.services.catalog_service import CatalogService
 
 # Templates
 templates = Jinja2Templates(directory="app/templates")
@@ -33,7 +33,7 @@ async def browse_texts(
     show: str = Query("all", description="Filter by status: all, favorites, archived"),
     era: Optional[str] = Query(None, description="Filter by era: pre-socratic, hellenistic, imperial, late-antiquity"),
     search: Optional[str] = Query(None, description="Search term"),
-    catalog_service: EnhancedCatalogService = Depends(get_enhanced_catalog_service),
+    catalog_service: CatalogService = Depends(get_catalog_service),
 ):
     """Browse texts with filtering options.
 
@@ -42,7 +42,7 @@ async def browse_texts(
         show: Filter by status (all, favorites, archived)
         era: Filter by era
         search: Search term
-        catalog_service: EnhancedCatalogService instance
+        catalog_service: CatalogService instance
 
     Returns:
         HTMLResponse with rendered template
@@ -133,7 +133,7 @@ async def browse_texts_json(
     show: str = Query("all", description="Filter by status: all, favorites, archived"),
     era: Optional[str] = Query(None, description="Filter by era: pre-socratic, hellenistic, imperial, late-antiquity"),
     search: Optional[str] = Query(None, description="Search term"),
-    catalog_service: EnhancedCatalogService = Depends(get_enhanced_catalog_service),
+    catalog_service: CatalogService = Depends(get_catalog_service),
 ):
     """Browse texts with filtering options (JSON API).
 
@@ -141,7 +141,7 @@ async def browse_texts_json(
         show: Filter by status (all, favorites, archived)
         era: Filter by era
         search: Search term
-        catalog_service: EnhancedCatalogService instance
+        catalog_service: CatalogService instance
 
     Returns:
         JSONResponse with filtered texts
@@ -215,11 +215,11 @@ async def browse_texts_json(
 
 
 @router.get("/statistics", response_model=None)
-async def catalog_statistics(catalog_service: EnhancedCatalogService = Depends(get_enhanced_catalog_service)):
+async def catalog_statistics(catalog_service: CatalogService = Depends(get_catalog_service)):
     """Get catalog statistics.
 
     Args:
-        catalog_service: EnhancedCatalogService instance
+        catalog_service: CatalogService instance
 
     Returns:
         JSONResponse with catalog statistics
@@ -227,4 +227,4 @@ async def catalog_statistics(catalog_service: EnhancedCatalogService = Depends(g
     # Get statistics from the catalog
     stats = catalog_service.get_catalog_statistics()
 
-    return JSONResponse(content=stats.dict())
+    return JSONResponse(content=stats.dict()) 
