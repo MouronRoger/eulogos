@@ -492,9 +492,10 @@ async def read_formatted_text(request: Request, path: str):
         # Read file directly to ensure it exists and is readable XML
         try:
             import xml.etree.ElementTree as ET
+            logger.debug(f"Attempting to parse XML directly: {full_path}")
             tree = ET.parse(str(full_path))
             xml_test_root = tree.getroot()
-            logger.debug(f"Successfully parsed XML using direct ET.parse: {full_path}")
+            logger.debug(f"Successfully parsed XML using direct ET.parse: {full_path}, root tag: {xml_test_root.tag}")
         except Exception as xml_read_error:
             logger.exception(f"Failed to parse XML file directly: {xml_read_error}")
             return templates.TemplateResponse(
@@ -511,11 +512,23 @@ async def read_formatted_text(request: Request, path: str):
         
         # Load the XML content
         try:
+            logger.debug(f"Loading XML from path using XMLProcessorService: {path}")
             xml_root = xml_processor.load_xml_from_path(path)
             if xml_root is None:
                 logger.error(f"XML root is None after loading from path: {path}")
+                return templates.TemplateResponse(
+                    "reader.html",
+                    {
+                        "request": request,
+                        "text": text_metadata if text_metadata else {"path": path},
+                        "content": "<div class='error'>Error: XML document could not be parsed correctly</div>",
+                        "path": path,
+                        "title": "XML Parse Error",
+                    },
+                    status_code=500,
+                )
             else:
-                logger.debug(f"Successfully loaded XML from path: {path}")
+                logger.debug(f"Successfully loaded XML from path: {path}, root tag: {xml_root.tag}")
         except Exception as xml_load_error:
             logger.exception(f"Exception when loading XML from {path}: {xml_load_error}")
             return templates.TemplateResponse(
@@ -530,32 +543,24 @@ async def read_formatted_text(request: Request, path: str):
                 status_code=500,
             )
 
-        # Check if xml_root is None
-        if xml_root is None:
-            logger.error(f"Failed to load XML content from {path}")
-            return templates.TemplateResponse(
-                "reader.html",
-                {
-                    "request": request,
-                    "text": text_metadata if text_metadata else {"path": path},
-                    "content": f"<div class='error'>Error: XML document could not be parsed</div>",
-                    "path": path,
-                    "title": "Error",
-                },
-                status_code=500,
-            )
-        
         # Handle reference-based display if specified
         if reference:
             # Get passage by reference
             try:
+                logger.debug(f"Getting passage for reference: {reference}")
                 passage = xml_processor.get_passage_by_reference(xml_root, reference)
                 logger.debug(f"Passage for reference {reference}: {passage is not None}")
                 
                 if passage:
                     try:
                         html_content = xml_processor._process_element_to_html(passage, reference)
+                        # Verify html_content is not None
+                        if html_content is None:
+                            logger.error(f"_process_element_to_html returned None for passage with reference {reference}")
+                            html_content = "<div class='error'>Error: Failed to process passage HTML</div>"
+                            
                         adjacent_refs = xml_processor.get_adjacent_references(xml_root, reference)
+                        logger.debug(f"Generated HTML content for reference {reference}, length: {len(html_content or '')}")
                     except Exception as element_error:
                         logger.exception(f"Error processing passage element: {element_error}")
                         html_content = f"<div class='error'>Error processing passage: {str(element_error)}</div>"
@@ -587,17 +592,21 @@ async def read_formatted_text(request: Request, path: str):
         try:
             # Directly verify that _transform_element_to_html doesn't receive None
             if xml_root is None:
+                logger.error("XML root is None before transformation")
                 raise ValueError("XML root is None before transformation")
                 
             # Try to get a safe fallback in case _transform_element_to_html fails
             safe_fallback_html = "<div class='simple-content'>"
             try:
+                logger.debug("Creating fallback HTML content")
                 text_content = "".join(xml_root.itertext()) if xml_root is not None else ""
                 if text_content:
+                    logger.debug(f"Text content length for fallback: {len(text_content)}")
                     safe_fallback_html += f"<p>{text_content[:5000]}</p>"
                     if len(text_content) > 5000:
                         safe_fallback_html += "<p>... (truncated)</p>"
                 else:
+                    logger.warning("No text content found for fallback")
                     safe_fallback_html += "<p>No text content found</p>"
             except Exception as fallback_error:
                 logger.error(f"Error creating fallback content: {fallback_error}")
@@ -641,6 +650,14 @@ async def read_formatted_text(request: Request, path: str):
             # Add specific logging for NoneType has no len() error
             if "has no len()" in str(e):
                 logger.debug("NoneType len() error detected - likely an issue with XML processing logic")
+                html_content = "<div class='error'>Error: NoneType has no len() - This is a known issue we're fixing. Please try a different document.</div>"
+            else:
+                html_content = f"<div class='error'>Error processing XML: {str(e)}</div>"
+        
+        # Final check to ensure html_content is not None before rendering
+        if html_content is None:
+            logger.critical("html_content is None just before template rendering! Using fallback content.")
+            html_content = "<div class='error'>Critical error: HTML content is None. Please report this issue.</div>"
         
         # Render the reader template
         return templates.TemplateResponse(
@@ -660,7 +677,7 @@ async def read_formatted_text(request: Request, path: str):
         # Add specific logging for NoneType has no len() error
         if "has no len()" in str(e):
             logger.debug("NoneType len() error detected - likely an issue with XML processing logic")
-        
+            
         return templates.TemplateResponse(
             "reader.html",
             {

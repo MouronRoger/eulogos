@@ -54,23 +54,54 @@ async def read_text(
         HTMLResponse with rendered text
     """
     # Look up the text in the catalog
+    logger.debug(f"Reading text with ID: {text_id}, reference: {reference}")
     text = catalog_service.get_text_by_id(text_id)
     if not text:
+        logger.error(f"Text not found in catalog: {text_id}")
         raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
 
     try:
         # Get the actual content path
         if not text.path:
+            logger.error(f"No path found for text: {text_id}")
             raise HTTPException(status_code=404, detail=f"No path found for text: {text_id}")
 
+        logger.debug(f"Found path for text {text_id}: {text.path}")
+        
         # Load and process the document
-        xml_root = xml_service.load_xml_from_path(text.path)
+        try:
+            xml_root = xml_service.load_xml_from_path(text.path)
+            if xml_root is None:
+                logger.error(f"XML root is None after loading from path: {text.path}")
+                raise ValueError(f"Failed to load XML content from {text.path}")
+            
+            logger.debug(f"Successfully loaded XML for {text_id} from path: {text.path}")
+        except Exception as xml_load_error:
+            logger.exception(f"Error loading XML for text {text_id}: {xml_load_error}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Error loading XML: {str(xml_load_error)}"
+            )
         
         # Get the HTML content
-        html_content = xml_service.transform_to_html(xml_root, reference)
+        try:
+            html_content = xml_service.transform_to_html(text_id, reference)
+            if html_content is None:
+                logger.error(f"HTML content is None after transformation for text {text_id}")
+                html_content = "<div class='error'>Error: Failed to transform XML to HTML</div>"
+            else:
+                logger.debug(f"Successfully transformed XML to HTML for {text_id}, content length: {len(html_content)}")
+        except Exception as transform_error:
+            logger.exception(f"Error transforming XML to HTML for text {text_id}: {transform_error}")
+            html_content = f"<div class='error'>Error transforming XML: {str(transform_error)}</div>"
         
         # Get adjacent references for navigation if a reference is provided
-        adjacent_refs = xml_service.get_adjacent_references(xml_root, reference) if reference else {"prev": None, "next": None}
+        try:
+            adjacent_refs = xml_service.get_adjacent_references(xml_root, reference) if reference else {"prev": None, "next": None}
+            logger.debug(f"Adjacent references for {text_id}: prev={adjacent_refs['prev']}, next={adjacent_refs['next']}")
+        except Exception as ref_error:
+            logger.exception(f"Error getting adjacent references for {text_id}: {ref_error}")
+            adjacent_refs = {"prev": None, "next": None}
 
         # Get author if available
         author = None
@@ -92,7 +123,13 @@ async def read_text(
                         author = author_candidate
                     break
 
+        # Make sure HTML content is not None before rendering
+        if html_content is None:
+            logger.critical(f"HTML content is None right before template rendering for {text_id}")
+            html_content = "<div class='error'>Critical error: HTML content is None</div>"
+
         # Render the template with the processed content
+        logger.debug(f"Rendering template for {text_id}")
         return templates.TemplateResponse(
             request,
             "reader.html",
@@ -105,9 +142,19 @@ async def read_text(
                 "next_ref": adjacent_refs["next"],
             },
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception(f"Error processing text: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing text: {str(e)}")
+        logger.exception(f"Error processing text {text_id}: {e}")
+        
+        # Add specific logging for NoneType has no len() error
+        if "has no len()" in str(e):
+            logger.debug(f"NoneType len() error detected for {text_id} - likely an issue with XML processing logic")
+            detail = "Error: NoneType has no len() - This is a known issue we're fixing. Please try a different document."
+        else:
+            detail = f"Error processing text: {str(e)}"
+            
+        raise HTTPException(status_code=500, detail=detail)
 
 
 @router.get("/document/{text_id}", response_class=JSONResponse)
@@ -193,31 +240,63 @@ async def get_passage(
         HTMLResponse with the specific passage
     """
     # Look up the text in the catalog
+    logger.debug(f"Getting passage for text ID: {text_id}, reference: {reference}")
     text = catalog_service.get_text_by_id(text_id)
     if not text:
+        logger.error(f"Text not found: {text_id}")
         raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
 
     # Get the actual content path
     if not text.path:
+        logger.error(f"No path found for text: {text_id}")
         raise HTTPException(status_code=404, detail=f"No path found for text: {text_id}")
 
     try:
         # Load and process the document
-        xml_root = xml_service.load_xml_from_path(text.path)
+        try:
+            xml_root = xml_service.load_xml_from_path(text.path)
+            if xml_root is None:
+                logger.error(f"XML root is None after loading from path: {text.path}")
+                raise ValueError(f"Failed to load XML content from {text.path}")
+                
+            logger.debug(f"Successfully loaded XML for {text_id} from path: {text.path}")
+        except Exception as xml_load_error:
+            logger.exception(f"Error loading XML for text {text_id}: {xml_load_error}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Error loading XML: {str(xml_load_error)}"
+            )
         
         # Get the specific passage
         passage = xml_service.get_passage_by_reference(xml_root, reference)
         if not passage:
-            logger.error(f"Reference not found: {reference}")
+            logger.error(f"Reference not found: {reference} for text {text_id}")
             raise HTTPException(status_code=404, detail=f"Reference not found: {reference}")
         
+        logger.debug(f"Found passage for reference {reference} in text {text_id}")
+        
         # Transform the passage to HTML
-        html_content = xml_service._process_element_to_html(passage, reference)
+        try:
+            html_content = xml_service._process_element_to_html(passage, reference)
+            if html_content is None:
+                logger.error(f"HTML content is None after processing passage for text {text_id}, reference {reference}")
+                html_content = "<div class='error'>Error: Failed to process passage to HTML</div>"
+            else:
+                logger.debug(f"Successfully processed passage to HTML for {text_id}, reference {reference}, content length: {len(html_content)}")
+        except Exception as transform_error:
+            logger.exception(f"Error processing passage to HTML for text {text_id}, reference {reference}: {transform_error}")
+            html_content = f"<div class='error'>Error processing passage: {str(transform_error)}</div>"
         
         # Get adjacent references for navigation
-        adjacent_refs = xml_service.get_adjacent_references(xml_root, reference)
+        try:
+            adjacent_refs = xml_service.get_adjacent_references(xml_root, reference)
+            logger.debug(f"Adjacent references for {text_id}, reference {reference}: prev={adjacent_refs['prev']}, next={adjacent_refs['next']}")
+        except Exception as ref_error:
+            logger.exception(f"Error getting adjacent references for {text_id}, reference {reference}: {ref_error}")
+            adjacent_refs = {"prev": None, "next": None}
         
         # Render the passage template
+        logger.debug(f"Rendering passage template for {text_id}, reference {reference}")
         return templates.TemplateResponse(
             request,
             "partials/passage.html",
@@ -232,8 +311,16 @@ async def get_passage(
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception(f"Error processing passage: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing passage: {str(e)}")
+        logger.exception(f"Error processing passage for text {text_id}, reference {reference}: {e}")
+        
+        # Add specific logging for NoneType has no len() error
+        if "has no len()" in str(e):
+            logger.debug(f"NoneType len() error detected for passage {text_id}/{reference} - likely an issue with XML processing logic")
+            detail = "Error: NoneType has no len() - This is a known issue we're fixing. Please try a different document or reference."
+        else:
+            detail = f"Error processing passage: {str(e)}"
+            
+        raise HTTPException(status_code=500, detail=detail)
 
 
 @router.get("/references/{text_id}", response_class=JSONResponse)
