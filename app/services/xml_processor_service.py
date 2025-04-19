@@ -221,6 +221,11 @@ class XMLProcessorService:
         Returns:
             HTML string with reference attributes
         """
+        # Add proper None checking
+        if xml_root is None:
+            logger.error("Cannot transform None element to HTML")
+            return "<p>Error: XML document could not be processed</p>"
+            
         html = []
 
         if target_ref:
@@ -409,13 +414,33 @@ class XMLProcessorService:
         Returns:
             Dictionary of statistics
         """
+        # Add proper None checking
+        if document is None:
+            logger.error("Cannot get statistics from None document")
+            return {
+                "element_count": 0,
+                "text_length": 0,
+                "word_count": 0,
+                "reference_count": 0
+            }
+            
         # Calculate basic statistics
-        stats = {
-            "element_count": self._count_elements(document),
-            "text_length": len("".join(document.itertext())),
-            "word_count": self._count_words(document),
-            "reference_count": len(self.extract_references(document))
-        }
+        try:
+            stats = {
+                "element_count": self._count_elements(document),
+                "text_length": len("".join(document.itertext())),
+                "word_count": self._count_words(document),
+                "reference_count": len(self.extract_references(document))
+            }
+        except (AttributeError, TypeError) as e:
+            logger.error(f"Error calculating document statistics: {e}")
+            stats = {
+                "element_count": 0,
+                "text_length": 0,
+                "word_count": 0,
+                "reference_count": 0,
+                "error": str(e)
+            }
         
         return stats
         
@@ -428,10 +453,16 @@ class XMLProcessorService:
         Returns:
             Number of elements
         """
-        count = 1  # Count the element itself
-        for child in element:
-            count += self._count_elements(child)
-        return count
+        if element is None:
+            return 0
+            
+        try:
+            count = 1  # Count the element itself
+            for child in element:
+                count += self._count_elements(child)
+            return count
+        except (AttributeError, TypeError):
+            return 0
         
     def _count_words(self, element: Any) -> int:
         """Count the number of words in a document.
@@ -442,8 +473,14 @@ class XMLProcessorService:
         Returns:
             Number of words
         """
-        text = "".join(element.itertext())
-        return len(text.split())
+        if element is None:
+            return 0
+            
+        try:
+            text = "".join(element.itertext())
+            return len(text.split())
+        except (AttributeError, TypeError):
+            return 0
         
     def transform_element_to_html(self, element: Any) -> str:
         """Transform an XML element to HTML.
@@ -466,7 +503,16 @@ class XMLProcessorService:
         Returns:
             Text content
         """
-        return "".join(element.itertext())
+        # Add proper None checking
+        if element is None:
+            logger.error("Cannot extract text from None element")
+            return ""
+            
+        try:
+            return "".join(element.itertext())
+        except (AttributeError, TypeError) as e:
+            logger.error(f"Error extracting text: {e}")
+            return ""
         
     def serialize_element(self, element: Any) -> str:
         """Serialize an XML element to string.
@@ -477,4 +523,13 @@ class XMLProcessorService:
         Returns:
             XML string
         """
-        return ET.tostring(element, encoding="unicode")
+        # Add proper None checking
+        if element is None:
+            logger.error("Cannot serialize None element")
+            return ""
+            
+        try:
+            return ET.tostring(element, encoding="unicode")
+        except (TypeError, ValueError) as e:
+            logger.error(f"Error serializing element: {e}")
+            return ""

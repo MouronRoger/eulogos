@@ -20,7 +20,7 @@
                             name="era"
                             value="{{ era|lower }}"
                             class="rounded text-blue-600"
-                            hx-get="/api/v2/browse"
+                            hx-get="/browse"
                             hx-trigger="change"
                             hx-target="#author-list"
                             hx-include="[name='era']"
@@ -42,7 +42,7 @@
                             value="all"
                             checked
                             class="text-blue-600"
-                            hx-get="/api/v2/browse"
+                            hx-get="/browse"
                             hx-trigger="change"
                             hx-target="#author-list"
                         >
@@ -54,7 +54,7 @@
                             name="status"
                             value="favorites"
                             class="text-blue-600"
-                            hx-get="/api/v2/browse"
+                            hx-get="/browse"
                             hx-trigger="change"
                             hx-target="#author-list"
                         >
@@ -66,7 +66,7 @@
                             name="status"
                             value="archived"
                             class="text-blue-600"
-                            hx-get="/api/v2/browse"
+                            hx-get="/browse"
                             hx-trigger="change"
                             hx-target="#author-list"
                         >

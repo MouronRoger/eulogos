@@ -464,6 +464,16 @@ async def get_references_by_path(
         raise HTTPException(status_code=500, detail=f"Error processing references: {str(e)}")
 
 
+# Add alternative route for non-prefixed endpoint
+@router.get("/references/{path:path}", response_class=JSONResponse, include_in_schema=False)
+async def get_references_by_path_no_prefix(
+    path: str = Path(..., description="File path relative to data directory"),
+    xml_service: XMLProcessorService = Depends(get_xml_service),
+):
+    """Alternative route for getting references without the /api/v2 prefix."""
+    return await get_references_by_path(path, xml_service)
+
+
 @router.get("/passage/path/{path:path}/{reference}", response_class=HTMLResponse)
 async def get_passage_by_path(
     request: Request,
@@ -550,6 +560,17 @@ async def archive_text_by_path(
     return {"success": success, "archived": archive}
 
 
+# Add alternative route for non-prefixed endpoint
+@router.post("/texts/{path:path}/archive", include_in_schema=False)
+async def archive_text_by_path_no_prefix(
+    path: str = Path(..., description="File path relative to data directory"),
+    archive: bool = Query(True, description="True to archive, False to unarchive"),
+    catalog_service: CatalogService = Depends(get_catalog_service),
+):
+    """Alternative route for archiving texts without the /api/v2 prefix."""
+    return await archive_text_by_path(path, archive, catalog_service)
+
+
 @router.post("/texts/path/{path:path}/favorite")
 async def favorite_text_by_path(
     path: str = Path(..., description="File path relative to data directory"),
@@ -579,4 +600,14 @@ async def favorite_text_by_path(
     # Get the updated text to get the current favorite status
     text = catalog_service.get_text_by_id(text.id)
     
-    return {"success": success, "favorite": text.favorite if text else False} 
+    return {"success": success, "favorite": text.favorite if text else False}
+
+
+# Add alternative route for non-prefixed endpoint
+@router.post("/texts/{path:path}/favorite", include_in_schema=False)
+async def favorite_text_by_path_no_prefix(
+    path: str = Path(..., description="File path relative to data directory"),
+    catalog_service: CatalogService = Depends(get_catalog_service),
+):
+    """Alternative route for favoriting texts without the /api/v2 prefix."""
+    return await favorite_text_by_path(path, catalog_service) 

@@ -405,14 +405,14 @@
                     <!-- Text controls -->
             <div class="mt-4 flex space-x-2">
                         <button
-                            hx-post="/api/v2/texts/{{ path }}/archive?archive={{ not text.archived }}"
+                            hx-post="/texts/{{ path }}/archive?archive={{ not text.archived }}"
                             hx-target="#reader-container"
                             class="px-2 py-1 {{ 'bg-green-600' if text.archived else 'bg-gray-600' }} text-white rounded text-sm"
                         >
                             {{ 'Unarchive' if text.archived else 'Archive' }}
                         </button>
                         <button
-                            hx-post="/api/v2/texts/{{ path }}/favorite"
+                            hx-post="/texts/{{ path }}/favorite"
                             hx-target="#reader-container"
                             class="px-2 py-1 {{ 'bg-yellow-600' if text.favorite else 'bg-gray-600' }} text-white rounded text-sm"
                         >
@@ -433,13 +433,13 @@
                         class="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded shadow-lg z-50"
                             >
                         <div class="py-1">
-                            <a href="/api/v2/export/{{ path }}?format=pdf" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">PDF</a>
-                            <a href="/api/v2/export/{{ path }}?format=epub" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">ePub</a>
-                            <a href="/api/v2/export/{{ path }}?format=mobi" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">MOBI</a>
-                            <a href="/api/v2/export/{{ path }}?format=markdown" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Markdown</a>
-                            <a href="/api/v2/export/{{ path }}?format=docx" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">DOCX</a>
-                            <a href="/api/v2/export/{{ path }}?format=latex" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">LaTeX</a>
-                            <a href="/api/v2/export/{{ path }}?format=html" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">HTML</a>
+                            <a href="/export/{{ path }}?format=pdf" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">PDF</a>
+                            <a href="/export/{{ path }}?format=epub" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">ePub</a>
+                            <a href="/export/{{ path }}?format=mobi" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">MOBI</a>
+                            <a href="/export/{{ path }}?format=markdown" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Markdown</a>
+                            <a href="/export/{{ path }}?format=docx" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">DOCX</a>
+                            <a href="/export/{{ path }}?format=latex" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">LaTeX</a>
+                            <a href="/export/{{ path }}?format=html" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">HTML</a>
                         </div>
                                 </div>
                             </div>
@@ -505,7 +505,7 @@
             <div x-show="showToc" class="border-t border-gray-200 dark:border-gray-700">
                 <div
                     class="p-4 max-h-64 overflow-y-auto"
-                    hx-get="/api/v2/references/{{ path }}"
+                    hx-get="/references/{{ path }}"
                     hx-trigger="load"
                     hx-target="this"
                 >

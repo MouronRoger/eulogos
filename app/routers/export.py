@@ -436,4 +436,17 @@ async def export_single_by_path(
         }
     except Exception as e:
         logger.error(f"Error exporting path {path}: {e}")
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+
+# Create a route outside the router for direct export access
+@router.post("/export/{path:path}", include_in_schema=False)
+async def export_by_path_no_prefix(
+    path: str = PathParam(..., description="The canonical path to the text from catalog"),
+    options: ExportOptions = None,
+    current_user: User = Depends(get_current_user),
+    catalog_service: CatalogService = Depends(get_catalog_service),
+    xml_service: XMLProcessorService = Depends(get_xml_service),
+) -> Dict[str, Any]:
+    """Alternative export endpoint without the api/v2 prefix."""
+    return await export_single_by_path(path, options, current_user, catalog_service, xml_service) 

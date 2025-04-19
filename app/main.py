@@ -331,6 +331,13 @@ async def search_texts(request: Request, q: str = ""):
     return JSONResponse(content={"results": results})
 
 
+# Non-prefixed search endpoint for compatibility
+@app.get("/search")
+async def search_texts_no_prefix(request: Request, q: str = ""):
+    """Non-prefixed search endpoint."""
+    return await search_texts(request, q)
+
+
 @app.get("/read/id/{text_id}", response_class=HTMLResponse)
 async def read_by_id(
     request: Request,
@@ -477,6 +484,21 @@ async def read_formatted_text(request: Request, path: str):
         
         # Load the XML content
         xml_root = xml_processor.load_xml_from_path(path)
+
+        # Check if xml_root is None
+        if xml_root is None:
+            logger.error(f"Failed to load XML content from {path}")
+            return templates.TemplateResponse(
+                "reader.html",
+                {
+                    "request": request,
+                    "text": text_metadata if text_metadata else {"path": path},
+                    "content": f"<div class='error'>Error: XML document could not be parsed</div>",
+                    "path": path,
+                    "title": "Error",
+                },
+                status_code=500,
+            )
         
         # Handle reference-based display if specified
         if reference:
@@ -504,7 +526,11 @@ async def read_formatted_text(request: Request, path: str):
             )
         
         # Format the XML for display
-        html_content = xml_processor._transform_element_to_html(xml_root)
+        try:
+            html_content = xml_processor._transform_element_to_html(xml_root)
+        except (TypeError, AttributeError) as e:
+            logger.error(f"Error transforming XML: {e}")
+            html_content = f"<div class='error'>Error: Could not transform XML. {str(e)}</div>"
         
         # Render the reader template
         return templates.TemplateResponse(
@@ -531,3 +557,24 @@ async def read_formatted_text(request: Request, path: str):
             },
             status_code=500,
         )
+
+
+# Non-prefixed browse endpoint for compatibility
+@app.get("/browse")
+async def browse_texts_no_prefix(request: Request):
+    """Non-prefixed browse endpoint."""
+    from app.routers.browse import browse_texts
+    show = request.query_params.get("show", "all")
+    era = request.query_params.get("era", None)
+    search = request.query_params.get("search", None)
+    
+    from app.dependencies import get_catalog_service
+    catalog_service = get_catalog_service()
+    
+    return await browse_texts(
+        request=request, 
+        show=show,
+        era=era,
+        search=search,
+        catalog_service=catalog_service
+    )
