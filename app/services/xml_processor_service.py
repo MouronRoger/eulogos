@@ -255,6 +255,9 @@ class XMLProcessorService:
         Returns:
             HTML string with reference attributes
         """
+        # Add more detailed logging
+        logger.debug(f"_transform_element_to_html called with xml_root type: {type(xml_root)}")
+        
         # Add proper None checking
         if xml_root is None:
             logger.error("Cannot transform None element to HTML")
@@ -271,9 +274,16 @@ class XMLProcessorService:
             else:
                 elements = [xml_root]
 
+            # Log the number of elements to process
+            logger.debug(f"Processing {len(elements)} elements for HTML transformation")
+            
             for element in elements:
                 # Validate each processed element
                 processed_html = self._process_element_to_html(element)
+                
+                # Log the result of processing each element
+                logger.debug(f"_process_element_to_html returned result type: {type(processed_html)}")
+                
                 if processed_html is None:
                     logger.error(f"_process_element_to_html returned None for element {element.tag if hasattr(element, 'tag') else 'unknown'}")
                     processed_html = "<div class='error'>Error: Element processing failed</div>"
@@ -284,7 +294,13 @@ class XMLProcessorService:
                 logger.error("No HTML content generated during transformation")
                 return "<div class='error'>Error: No content could be generated</div>"
                 
+            # Log before joining to check the html list
+            logger.debug(f"HTML list before joining: {len(html)} items")
+            
             result = "".join(html)
+            
+            # Log the final result length
+            logger.debug(f"Final HTML result length: {len(result) if result else 0}")
             
             # Final validation before returning
             if not result:

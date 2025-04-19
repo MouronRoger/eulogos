@@ -605,20 +605,42 @@ async def read_formatted_text(request: Request, path: str):
             safe_fallback_html += "</div>"
 
             # Try the main transformation
-            html_content = xml_processor._transform_element_to_html(xml_root)
-            logger.debug(f"Successfully transformed XML to HTML for path: {path}")
-            
-            # Make sure html_content is not None
-            if html_content is None or not html_content:
-                logger.error("_transform_element_to_html returned None or empty string")
-                html_content = safe_fallback_html
+            try:
+                logger.debug(f"Calling _transform_element_to_html for {path} with xml_root type: {type(xml_root)}")
                 
-        except (TypeError, AttributeError) as e:
-            logger.error(f"Error transforming XML: {e}")
-            html_content = f"<div class='error'>Error: Could not transform XML. {str(e)}</div><hr>{safe_fallback_html}"
-        except Exception as transform_error:
-            logger.exception(f"Unexpected error transforming XML: {transform_error}")
-            html_content = f"<div class='error'>Unexpected error transforming XML: {str(transform_error)}</div><hr>{safe_fallback_html}"
+                # Prevent NoneType error by checking xml_root first
+                if xml_root is None:
+                    logger.error("XML root is None, using fallback content")
+                    html_content = safe_fallback_html
+                else:
+                    # Call transformation with explicit None check
+                    html_content = xml_processor._transform_element_to_html(xml_root)
+                    
+                    # Check result type and length
+                    if html_content is None:
+                        logger.error("_transform_element_to_html returned None")
+                        html_content = safe_fallback_html
+                    else:
+                        logger.debug(f"Successfully transformed XML to HTML for path: {path}, result type: {type(html_content)}, length: {len(html_content) if html_content else 0}")
+                        
+                        # Make sure html_content is not empty
+                        if not html_content:
+                            logger.error("_transform_element_to_html returned empty string")
+                            html_content = safe_fallback_html
+            except (TypeError, AttributeError) as e:
+                logger.error(f"Error transforming XML: {e}", exc_info=True)
+                logger.error(f"XML root type: {type(xml_root)}, XML root attributes: {getattr(xml_root, 'attrib', 'N/A')}")
+                html_content = f"<div class='error'>Error: Could not transform XML. {str(e)}</div><hr>{safe_fallback_html}"
+            except Exception as transform_error:
+                logger.exception(f"Unexpected error transforming XML: {transform_error}")
+                html_content = f"<div class='error'>Unexpected error transforming XML: {str(transform_error)}</div><hr>{safe_fallback_html}"
+                
+        except Exception as e:
+            logger.error(f"Error processing XML: {str(e)}", exc_info=True)
+            
+            # Add specific logging for NoneType has no len() error
+            if "has no len()" in str(e):
+                logger.debug("NoneType len() error detected - likely an issue with XML processing logic")
         
         # Render the reader template
         return templates.TemplateResponse(
