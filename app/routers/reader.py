@@ -324,50 +324,6 @@ async def favorite_text(
     return {"success": success, "favorite": text.favorite if text else False}
 
 
-@router.get("/api/v2/read/{text_id}")
-async def get_text(
-    text_id: str,
-    catalog_service: CatalogService = Depends(get_catalog_service),
-    xml_service: XMLProcessorService = Depends(get_xml_service),
-) -> TemplateResponse:
-    """Get text by ID."""
-    try:
-        # Get text from catalog
-        text = catalog_service.get_text_by_id(text_id)
-        if not text:
-            raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
-
-        # Load XML document
-        xml_root = xml_service.load_xml_from_path(text.path)
-        if not xml_root:
-            raise HTTPException(status_code=404, detail=f"XML document not found: {text.path}")
-
-        # Transform to HTML
-        html_content = xml_service.transform_to_html(xml_root)
-
-        # Get metadata
-        metadata = {
-            "title": text.work_name,
-            "author": text.author_id,
-            "language": text.language,
-            "wordcount": text.wordcount,
-        }
-
-        # Render template
-        return TemplateResponse(
-            "reader.html",
-            {
-                "request": request,
-                "content": html_content,
-                "metadata": metadata,
-                "text_id": text_id,
-            },
-        )
-    except Exception as e:
-        logger.error(f"Error processing text: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing text: {str(e)}")
-
-
 @router.get("/read/path/{path:path}", response_class=HTMLResponse)
 async def read_text_by_path(
     request: Request,
