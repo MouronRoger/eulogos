@@ -10,6 +10,7 @@ import uuid
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+from datetime import datetime
 
 import jinja2
 from ebooklib import epub
@@ -526,7 +527,10 @@ class ExportService:
         """
         if text and text.path:
             return f"{Path(text.path).stem}.{extension}"
-        return f"export_{uuid.uuid4()}.{extension}"
+        
+        # Instead of generating a UUID, use a more deterministic approach
+        # This could be the timestamp plus a sanitized version of text_id
+        return f"export_text_{datetime.now().strftime('%Y%m%d%H%M%S')}.{extension}"
 
     def _compress_file(self, input_path: Union[str, Path], compression: str, compression_level: Optional[int] = None) -> str:
         """
@@ -733,7 +737,10 @@ class ExportService:
         # Create temporary output path
         output_dir = Path("temp_exports")
         output_dir.mkdir(exist_ok=True)
-        output_path = output_dir / f"export_{uuid.uuid4()}.{format}"
+        
+        # Use timestamp for deterministic filename
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        output_path = output_dir / f"export_{timestamp}.{format}"
 
         try:
             if format == "pdf":

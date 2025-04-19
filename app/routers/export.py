@@ -50,7 +50,9 @@ class ExportProgress:
         Args:
             total_files: Total number of files to export
         """
-        self.job_id = str(uuid.uuid4())
+        # Use timestamp-based ID instead of random UUID
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        self.job_id = f"job_{timestamp}"
         self.total_files = total_files
         self.completed_files = 0
         self.failed_files = 0
