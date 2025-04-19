@@ -14,6 +14,9 @@ from app.services.catalog_service import CatalogService
 # Define Element type for type annotations
 Element = TypeVar("Element", bound=ET.Element)
 
+# TEI namespace
+TEI_NS = "http://www.tei-c.org/ns/1.0"
+NS_MAP = {"tei": TEI_NS}
 
 class XMLProcessorService:
     """Service for processing XML files with reference handling."""
@@ -69,7 +72,12 @@ class XMLProcessorService:
             logger.debug(f"XML file size: {file_size} bytes")
             
             # Try to parse the XML file
-            root = ET.parse(str(filepath)).getroot()
+            tree = ET.parse(str(filepath))
+            root = tree.getroot()
+            
+            # Register the TEI namespace
+            ET.register_namespace('tei', TEI_NS)
+            
             # Log success with element details
             logger.debug(
                 f"Successfully parsed XML file: {filepath}, "
@@ -415,15 +423,17 @@ class XMLProcessorService:
             # Log element details for debugging
             logger.debug(f"Processing element: tag={element.tag}, attrib={element.attrib}, parent_ref={parent_ref}")
             
+            # Handle TEI namespace
+            tag = element.tag.split("}")[-1] if "}" in element.tag else element.tag
             n_value = element.get("n")
-
+            
             if n_value:
                 ref = f"{parent_ref}.{n_value}" if parent_ref else n_value
                 html = f'<div class="ref" data-ref="{ref}" id="ref-{ref}">'
                 html += f'<span class="ref-num">{n_value}</span>'
             else:
                 ref = parent_ref
-                html = "<div>"
+                html = f'<div class="{tag}">'
 
             # Process text content
             if element.text and element.text.strip():
@@ -456,7 +466,7 @@ class XMLProcessorService:
             html += "</div>"
             
             # Log processing result summary
-            logger.debug(f"Processed element {element.tag} with {child_count} children, HTML length: {len(html)}")
+            logger.debug(f"Processed element {tag} with {child_count} children, HTML length: {len(html)}")
             
             return html
         except Exception as e:

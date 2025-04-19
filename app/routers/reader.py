@@ -33,10 +33,10 @@ router = APIRouter(
 )
 
 
-@router.get("/read/{text_id}", response_class=HTMLResponse)
+@router.get("/read/{text_id:path}", response_class=HTMLResponse)
 async def read_text(
     request: Request,
-    text_id: str = Path(..., description="Text ID"),
+    text_id: str = Path(..., description="Text ID or path"),
     reference: Optional[str] = Query(None, description="Optional reference to navigate to"),
     catalog_service: CatalogService = Depends(get_catalog_service),
     xml_service: XMLProcessorService = Depends(get_xml_service),
@@ -45,7 +45,7 @@ async def read_text(
 
     Args:
         request: FastAPI request object
-        text_id: Text ID
+        text_id: Text ID or path
         reference: Optional reference to navigate to
         catalog_service: CatalogService instance
         xml_service: XML service for processing text
@@ -53,11 +53,67 @@ async def read_text(
     Returns:
         HTMLResponse with rendered text
     """
-    # Look up the text in the catalog
-    logger.debug(f"Reading text with ID: {text_id}, reference: {reference}")
+    # First try to load as a direct path
+    logger.debug(f"Reading text with ID/path: {text_id}, reference: {reference}")
+    
+    try:
+        # Try loading directly as a path first
+        xml_root = xml_service.load_xml_from_path(text_id)
+        if xml_root is not None:
+            logger.debug(f"Successfully loaded XML directly from path: {text_id}")
+            # Get the HTML content
+            try:
+                html_content = xml_service._transform_element_to_html(xml_root, reference)
+                if html_content is None:
+                    logger.error(f"HTML content is None after transformation for path {text_id}")
+                    html_content = "<div class='error'>Error: Failed to transform XML to HTML</div>"
+                else:
+                    logger.debug(f"Successfully transformed XML to HTML for path {text_id}, content length: {len(html_content)}")
+            except Exception as transform_error:
+                logger.exception(f"Error transforming XML to HTML for path {text_id}: {transform_error}")
+                html_content = f"<div class='error'>Error transforming XML: {str(transform_error)}</div>"
+
+            # Get adjacent references for navigation if a reference is provided
+            try:
+                adjacent_refs = xml_service.get_adjacent_references(xml_root, reference) if reference else {"prev": None, "next": None}
+                logger.debug(f"Adjacent references for path {text_id}: prev={adjacent_refs['prev']}, next={adjacent_refs['next']}")
+            except Exception as ref_error:
+                logger.exception(f"Error getting adjacent references for path {text_id}: {ref_error}")
+                adjacent_refs = {"prev": None, "next": None}
+
+            # Create a minimal text object for the template
+            text = {
+                "id": text_id,
+                "path": text_id,
+                "group_name": "Unknown",
+                "work_name": text_id,
+                "language": "Unknown",
+            }
+
+            return templates.TemplateResponse(
+                "reader.html",
+                {
+                    "request": request,
+                    "text": text,
+                    "author": None,
+                    "content": html_content,
+                    "reference": reference,
+                    "prev_ref": adjacent_refs["prev"],
+                    "next_ref": adjacent_refs["next"],
+                    "path": text_id,
+                },
+            )
+    except FileNotFoundError:
+        # If loading as path fails, try as text ID
+        pass
+    except Exception as direct_load_error:
+        logger.exception(f"Error loading directly from path {text_id}: {direct_load_error}")
+        # Continue to try as text ID
+
+    # If direct path loading failed, try as a text ID
     text = catalog_service.get_text_by_id(text_id)
     if not text:
-        logger.error(f"Text not found in catalog: {text_id}")
+        logger.error(f"Text not found in catalog and not a valid path: {text_id}")
         raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
 
     try:
@@ -67,6 +123,12 @@ async def read_text(
             raise HTTPException(status_code=404, detail=f"No path found for text: {text_id}")
 
         logger.debug(f"Found path for text {text_id}: {text.path}")
+        
+        # Ensure ID and path are synchronized
+        if text.id != text.path:
+            logger.warning(f"Text ID and path mismatch: id={text.id}, path={text.path}")
+            # Update the ID to match the path
+            text.id = text.path
         
         # Load and process the document
         try:
@@ -140,6 +202,7 @@ async def read_text(
                 "reference": reference,
                 "prev_ref": adjacent_refs["prev"],
                 "next_ref": adjacent_refs["next"],
+                "path": text.path,  # Explicitly pass path to template
             },
         )
     except HTTPException:
@@ -515,21 +578,30 @@ async def get_references_by_path_no_prefix(
     """Alternative route for getting references without the /api/v2 prefix."""
     logger.info(f"Handling non-prefixed reference request for path: {path}")
     
-    # Check if the file exists before trying to process it
-    data_dir = PathLib("/Users/james/Documents/GitHub/eulogos/data")
-    full_path = data_dir / path
-    
-    if not full_path.exists():
-        logger.error(f"File not found in references endpoint: {full_path}")
-        raise HTTPException(status_code=404, detail=f"File not found: {path}")
+    # Remove .xml extension if present
+    if path.endswith('.xml'):
+        path = path[:-4]
     
     try:
-        result = await get_references_by_path(path, xml_service)
-        logger.info(f"Successfully processed references for path: {path}")
-        return result
+        # Load and process the document directly by path
+        xml_root = xml_service.load_xml_from_path(path + '.xml')
+        if xml_root is None:
+            logger.error(f"Failed to load XML for path: {path}")
+            raise HTTPException(status_code=500, detail="Failed to load XML document")
+            
+        # Get all references
+        references = xml_service.extract_references(xml_root)
+        
+        # Return just the list of reference strings
+        sorted_refs = sorted(references.keys(), key=lambda x: [int(n) if n.isdigit() else n for n in x.split(".")])
+        logger.info(f"Successfully processed references for path: {path}, found {len(sorted_refs)} references")
+        return {"references": sorted_refs}
+    except FileNotFoundError:
+        logger.error(f"File not found in references endpoint: {path}")
+        raise HTTPException(status_code=404, detail=f"File not found: {path}")
     except Exception as e:
         logger.exception(f"Error in get_references_by_path_no_prefix for path {path}: {e}")
-        raise
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/passage/path/{path:path}/{reference}", response_class=HTMLResponse)

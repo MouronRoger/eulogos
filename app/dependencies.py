@@ -46,8 +46,12 @@ def get_xml_service(
     Returns:
         XMLProcessorService instance
     """
-    logger.debug("Creating XMLProcessorService instance")
-    return XMLProcessorService(catalog_service=catalog_service, settings=settings)
+    logger.debug(f"Creating XMLProcessorService instance with data_path={settings.data_dir}")
+    return XMLProcessorService(
+        catalog_service=catalog_service,
+        data_path=str(settings.data_dir),
+        settings=settings
+    )
 
 
 @lru_cache(maxsize=1)
