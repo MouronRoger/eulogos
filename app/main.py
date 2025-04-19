@@ -426,6 +426,7 @@ async def read_formatted_text(request: Request, path: str):
     try:
         # Get reference from query params if present
         reference = request.query_params.get("reference")
+        logger.debug(f"Read formatted text for path: {path}, reference: {reference}")
         
         # Find the text in the catalog to get metadata
         catalog = load_catalog()
@@ -473,6 +474,12 @@ async def read_formatted_text(request: Request, path: str):
                             }
                             break
         
+        # Log if metadata was found
+        if text_metadata:
+            logger.debug(f"Found text metadata for path {path}: id={text_metadata['id']}")
+        else:
+            logger.warning(f"No text metadata found in catalog for path: {path}")
+        
         # Create XML processor
         from app.services.xml_processor_service import XMLProcessorService
         from app.services.catalog_service import CatalogService
@@ -482,8 +489,46 @@ async def read_formatted_text(request: Request, path: str):
         catalog_service.create_unified_catalog()
         xml_processor = XMLProcessorService(catalog_service=catalog_service, data_path=str(DATA_DIR))
         
+        # Read file directly to ensure it exists and is readable XML
+        try:
+            import xml.etree.ElementTree as ET
+            tree = ET.parse(str(full_path))
+            xml_test_root = tree.getroot()
+            logger.debug(f"Successfully parsed XML using direct ET.parse: {full_path}")
+        except Exception as xml_read_error:
+            logger.exception(f"Failed to parse XML file directly: {xml_read_error}")
+            return templates.TemplateResponse(
+                "reader.html",
+                {
+                    "request": request,
+                    "text": text_metadata if text_metadata else {"path": path},
+                    "content": f"<div class='error'>Error: XML file could not be parsed. Details: {str(xml_read_error)}</div>",
+                    "path": path,
+                    "title": "XML Parse Error",
+                },
+                status_code=500,
+            )
+        
         # Load the XML content
-        xml_root = xml_processor.load_xml_from_path(path)
+        try:
+            xml_root = xml_processor.load_xml_from_path(path)
+            if xml_root is None:
+                logger.error(f"XML root is None after loading from path: {path}")
+            else:
+                logger.debug(f"Successfully loaded XML from path: {path}")
+        except Exception as xml_load_error:
+            logger.exception(f"Exception when loading XML from {path}: {xml_load_error}")
+            return templates.TemplateResponse(
+                "reader.html",
+                {
+                    "request": request,
+                    "text": text_metadata if text_metadata else {"path": path},
+                    "content": f"<div class='error'>Error loading XML: {str(xml_load_error)}</div>",
+                    "path": path,
+                    "title": "XML Load Error",
+                },
+                status_code=500,
+            )
 
         # Check if xml_root is None
         if xml_root is None:
@@ -503,12 +548,25 @@ async def read_formatted_text(request: Request, path: str):
         # Handle reference-based display if specified
         if reference:
             # Get passage by reference
-            passage = xml_processor.get_passage_by_reference(xml_root, reference)
-            if passage:
-                html_content = xml_processor._process_element_to_html(passage, reference)
-                adjacent_refs = xml_processor.get_adjacent_references(xml_root, reference)
-            else:
-                html_content = f"<p>Reference '{reference}' not found.</p>"
+            try:
+                passage = xml_processor.get_passage_by_reference(xml_root, reference)
+                logger.debug(f"Passage for reference {reference}: {passage is not None}")
+                
+                if passage:
+                    try:
+                        html_content = xml_processor._process_element_to_html(passage, reference)
+                        adjacent_refs = xml_processor.get_adjacent_references(xml_root, reference)
+                    except Exception as element_error:
+                        logger.exception(f"Error processing passage element: {element_error}")
+                        html_content = f"<div class='error'>Error processing passage: {str(element_error)}</div>"
+                        adjacent_refs = {"prev": None, "next": None}
+                else:
+                    html_content = f"<p>Reference '{reference}' not found.</p>"
+                    adjacent_refs = {"prev": None, "next": None}
+                    logger.warning(f"Reference '{reference}' not found in document {path}")
+            except Exception as ref_error:
+                logger.exception(f"Error processing reference {reference}: {ref_error}")
+                html_content = f"<p>Error processing reference '{reference}'.</p>"
                 adjacent_refs = {"prev": None, "next": None}
                 
             return templates.TemplateResponse(
@@ -525,12 +583,42 @@ async def read_formatted_text(request: Request, path: str):
                 },
             )
         
-        # Format the XML for display
+        # Format the XML for display without reference
         try:
+            # Directly verify that _transform_element_to_html doesn't receive None
+            if xml_root is None:
+                raise ValueError("XML root is None before transformation")
+                
+            # Try to get a safe fallback in case _transform_element_to_html fails
+            safe_fallback_html = "<div class='simple-content'>"
+            try:
+                text_content = "".join(xml_root.itertext()) if xml_root is not None else ""
+                if text_content:
+                    safe_fallback_html += f"<p>{text_content[:5000]}</p>"
+                    if len(text_content) > 5000:
+                        safe_fallback_html += "<p>... (truncated)</p>"
+                else:
+                    safe_fallback_html += "<p>No text content found</p>"
+            except Exception as fallback_error:
+                logger.error(f"Error creating fallback content: {fallback_error}")
+                safe_fallback_html += "<p>Could not extract text content</p>"
+            safe_fallback_html += "</div>"
+
+            # Try the main transformation
             html_content = xml_processor._transform_element_to_html(xml_root)
+            logger.debug(f"Successfully transformed XML to HTML for path: {path}")
+            
+            # Make sure html_content is not None
+            if html_content is None or not html_content:
+                logger.error("_transform_element_to_html returned None or empty string")
+                html_content = safe_fallback_html
+                
         except (TypeError, AttributeError) as e:
             logger.error(f"Error transforming XML: {e}")
-            html_content = f"<div class='error'>Error: Could not transform XML. {str(e)}</div>"
+            html_content = f"<div class='error'>Error: Could not transform XML. {str(e)}</div><hr>{safe_fallback_html}"
+        except Exception as transform_error:
+            logger.exception(f"Unexpected error transforming XML: {transform_error}")
+            html_content = f"<div class='error'>Unexpected error transforming XML: {str(transform_error)}</div><hr>{safe_fallback_html}"
         
         # Render the reader template
         return templates.TemplateResponse(
@@ -546,6 +634,11 @@ async def read_formatted_text(request: Request, path: str):
         
     except Exception as e:
         logger.error(f"Error processing XML: {str(e)}", exc_info=True)
+        
+        # Add specific logging for NoneType has no len() error
+        if "has no len()" in str(e):
+            logger.debug("NoneType len() error detected - likely an issue with XML processing logic")
+        
         return templates.TemplateResponse(
             "reader.html",
             {

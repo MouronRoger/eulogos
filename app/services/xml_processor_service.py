@@ -57,9 +57,22 @@ class XMLProcessorService:
             FileNotFoundError: If the XML file is not found
         """
         filepath = self.data_path / path
+        logger.debug(f"Attempting to load XML from filepath: {filepath}")
+        
         if not filepath.exists():
+            logger.error(f"XML file not found: {filepath}")
             raise FileNotFoundError(f"XML file not found: {filepath}")
-        return ET.parse(str(filepath)).getroot()
+        
+        try:
+            root = ET.parse(str(filepath)).getroot()
+            logger.debug(f"Successfully parsed XML file: {filepath}")
+            return root
+        except ET.ParseError as e:
+            logger.exception(f"XML parse error for file {filepath}: {e}")
+            raise
+        except Exception as e:
+            logger.exception(f"Unexpected error loading XML from {filepath}: {e}")
+            raise
         
     def load_document(self, text_id: str) -> Any:
         """Load document by text ID.
@@ -74,10 +87,13 @@ class XMLProcessorService:
             FileNotFoundError: If text not found
         """
         # Get text from catalog
+        logger.debug(f"Loading document for text_id: {text_id}")
         text = self.catalog_service.get_text_by_id(text_id)
         if not text:
+            logger.error(f"Text not found for ID: {text_id}")
             raise FileNotFoundError(f"Text not found for ID: {text_id}")
-            
+        
+        logger.debug(f"Found text with path: {text.path}")
         # Load XML from path
         return self.load_xml_from_path(text.path)
 
@@ -90,9 +106,19 @@ class XMLProcessorService:
         Returns:
             Dictionary mapping reference strings to elements
         """
-        references = {}
-        self._extract_references_recursive(xml_root, "", references)
-        return references
+        if xml_root is None:
+            logger.error("Cannot extract references from None XML root")
+            return {}
+            
+        try:
+            references = {}
+            logger.debug("Starting extraction of references from XML root")
+            self._extract_references_recursive(xml_root, "", references)
+            logger.debug(f"Extracted {len(references)} references from XML")
+            return references
+        except Exception as e:
+            logger.exception(f"Error extracting references: {e}")
+            return {}
 
     def _extract_references_recursive(self, element: Element, parent_ref: str, references: Dict[str, Element]) -> None:
         """Recursively extract references from XML.
@@ -102,15 +128,23 @@ class XMLProcessorService:
             parent_ref: Parent reference string
             references: Dictionary to store references
         """
-        n_value = element.get("n")
-        if n_value:
-            ref = f"{parent_ref}.{n_value}" if parent_ref else n_value
-            references[ref] = element
-        else:
-            ref = parent_ref
+        if element is None:
+            return
+            
+        try:
+            n_value = element.get("n")
+            if n_value:
+                ref = f"{parent_ref}.{n_value}" if parent_ref else n_value
+                references[ref] = element
+            else:
+                ref = parent_ref
 
-        for child in element:
-            self._extract_references_recursive(child, ref, references)
+            for child in element:
+                self._extract_references_recursive(child, ref, references)
+        except AttributeError as e:
+            logger.error(f"AttributeError in extract_references_recursive: {e}, parent_ref={parent_ref}")
+        except Exception as e:
+            logger.error(f"Unexpected error in extract_references_recursive: {e}, parent_ref={parent_ref}")
 
     def get_passage_by_reference(self, xml_root: Element, reference: str) -> Optional[Element]:
         """Get a passage by its reference.
@@ -226,20 +260,42 @@ class XMLProcessorService:
             logger.error("Cannot transform None element to HTML")
             return "<p>Error: XML document could not be processed</p>"
             
-        html = []
+        try:
+            html = []
 
-        if target_ref:
-            element = self.get_passage_by_reference(xml_root, target_ref)
-            if element is None:
-                return f"<p>Reference '{target_ref}' not found.</p>"
-            elements = [element]
-        else:
-            elements = [xml_root]
+            if target_ref:
+                element = self.get_passage_by_reference(xml_root, target_ref)
+                if element is None:
+                    return f"<p>Reference '{target_ref}' not found.</p>"
+                elements = [element]
+            else:
+                elements = [xml_root]
 
-        for element in elements:
-            html.append(self._process_element_to_html(element))
+            for element in elements:
+                # Validate each processed element
+                processed_html = self._process_element_to_html(element)
+                if processed_html is None:
+                    logger.error(f"_process_element_to_html returned None for element {element.tag if hasattr(element, 'tag') else 'unknown'}")
+                    processed_html = "<div class='error'>Error: Element processing failed</div>"
+                html.append(processed_html)
 
-        return "".join(html)
+            # Ensure we have content to return
+            if not html:
+                logger.error("No HTML content generated during transformation")
+                return "<div class='error'>Error: No content could be generated</div>"
+                
+            result = "".join(html)
+            
+            # Final validation before returning
+            if not result:
+                logger.error("Empty string generated after joining HTML parts")
+                return "<div class='error'>Error: Empty content generated</div>"
+                
+            return result
+            
+        except Exception as e:
+            logger.exception(f"Unexpected error in _transform_element_to_html: {e}")
+            return f"<div class='error'>Error transforming XML: {str(e)}</div>"
 
     def _process_element_to_html(self, element: Element, parent_ref: str = "") -> str:
         """Process an XML element to HTML with reference attributes.
@@ -251,30 +307,46 @@ class XMLProcessorService:
         Returns:
             HTML string representation of the element
         """
-        n_value = element.get("n")
+        if element is None:
+            logger.error("Cannot process None element to HTML")
+            return "<div class='error'>Error: NULL element</div>"
+            
+        try:
+            n_value = element.get("n")
 
-        if n_value:
-            ref = f"{parent_ref}.{n_value}" if parent_ref else n_value
-            html = f'<div class="ref" data-ref="{ref}" id="ref-{ref}">'
-            html += f'<span class="ref-num">{n_value}</span>'
-        else:
-            ref = parent_ref
-            html = "<div>"
+            if n_value:
+                ref = f"{parent_ref}.{n_value}" if parent_ref else n_value
+                html = f'<div class="ref" data-ref="{ref}" id="ref-{ref}">'
+                html += f'<span class="ref-num">{n_value}</span>'
+            else:
+                ref = parent_ref
+                html = "<div>"
 
-        # Process text content
-        if element.text and element.text.strip():
-            html += f'<span class="text">{element.text}</span>'
+            # Process text content
+            if element.text and element.text.strip():
+                html += f'<span class="text">{element.text}</span>'
 
-        # Process children
-        for child in element:
-            html += self._process_element_to_html(child, ref)
+            # Process children
+            for child in element:
+                try:
+                    html += self._process_element_to_html(child, ref)
+                except Exception as child_error:
+                    logger.exception(f"Error processing child element: {child_error}")
+                    html += f"<div class='error'>Error processing child element: {str(child_error)}</div>"
 
-            # Handle tail text after child
-            if child.tail and child.tail.strip():
-                html += f'<span class="text">{child.tail}</span>'
+                # Handle tail text after child
+                try:
+                    if child.tail and child.tail.strip():
+                        html += f'<span class="text">{child.tail}</span>'
+                except Exception as tail_error:
+                    logger.exception(f"Error processing child tail: {tail_error}")
+                    html += f"<div class='error'>Error processing tail: {str(tail_error)}</div>"
 
-        html += "</div>"
-        return html
+            html += "</div>"
+            return html
+        except Exception as e:
+            logger.exception(f"Error in _process_element_to_html: {e}")
+            return f"<div class='error'>Error processing element: {str(e)}</div>"
 
     def extract_text_content(self, file_path: Path) -> str:
         """Extract the text content from an XML file.

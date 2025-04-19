@@ -356,7 +356,7 @@ async def read_text_by_path(
         xml_root = xml_service.load_xml_from_path(path)
         
         # Get the HTML content
-        html_content = xml_service._transform_element_to_html(xml_root)
+        html_content = xml_service._process_element_to_html(xml_root)
         
         # Get adjacent references for navigation if a reference is provided
         adjacent_refs = xml_service.get_adjacent_references(xml_root, reference) if reference else {"prev": None, "next": None}
@@ -420,14 +420,29 @@ async def get_references_by_path(
         raise HTTPException(status_code=500, detail=f"Error processing references: {str(e)}")
 
 
-# Add alternative route for non-prefixed endpoint
 @router.get("/references/{path:path}", response_class=JSONResponse, include_in_schema=False)
 async def get_references_by_path_no_prefix(
     path: str = Path(..., description="File path relative to data directory"),
     xml_service: XMLProcessorService = Depends(get_xml_service),
 ):
     """Alternative route for getting references without the /api/v2 prefix."""
-    return await get_references_by_path(path, xml_service)
+    logger.info(f"Handling non-prefixed reference request for path: {path}")
+    
+    # Check if the file exists before trying to process it
+    data_dir = PathLib("/Users/james/Documents/GitHub/eulogos/data")
+    full_path = data_dir / path
+    
+    if not full_path.exists():
+        logger.error(f"File not found in references endpoint: {full_path}")
+        raise HTTPException(status_code=404, detail=f"File not found: {path}")
+    
+    try:
+        result = await get_references_by_path(path, xml_service)
+        logger.info(f"Successfully processed references for path: {path}")
+        return result
+    except Exception as e:
+        logger.exception(f"Error in get_references_by_path_no_prefix for path {path}: {e}")
+        raise
 
 
 @router.get("/passage/path/{path:path}/{reference}", response_class=HTMLResponse)
