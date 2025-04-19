@@ -27,30 +27,30 @@ class Text:
 
     def __init__(
         self,
-        id: str,  # Explicit ID field
+        id: str,  # Keep id as the primary parameter for backward compatibility
         group_name: str,
         work_name: str,
         language: str,
         wordcount: int,
         author_id: str,
-        path: Optional[str] = None,
+        path: str,  # Path is required - there is no text without a path
         archived: bool = False,
         favorite: bool = False,
     ):
         """Initialize a text.
 
         Args:
-            id: The stable ID of the text
+            id: The stable ID of the text (should be equal to path)
             group_name: The name of the text group
             work_name: The name of the work
             language: The language of the text
             wordcount: The word count of the text
             author_id: The ID of the author
-            path: The path to the text file from catalog
+            path: The path to the text file from catalog (required)
             archived: Whether the text is archived
             favorite: Whether the text is favorited
         """
-        self.id = id
+        self.id = id  # Keep id as is for backward compatibility
         self.group_name = group_name
         self.work_name = work_name
         self.language = language
@@ -69,26 +69,25 @@ class Text:
 
         Returns:
             A Text object
-        """
-        # Path must come from catalog
-        if "path" not in values:
-            logger.warning(f"No path provided in catalog for text {values.get('id', 'unknown')}")
-        
-        # Ensure we have an ID
-        text_id = values.get("id")
-        if not text_id:
-            # Generate a UUID if no ID provided
-            text_id = f"text_{uuid.uuid4()}"
-            logger.warning(f"No ID provided for text, using {text_id}")
 
+        Raises:
+            ValueError: If no path is provided
+        """
+        # Path is required - there is no text without a path
+        if "path" not in values or not values["path"]:
+            raise ValueError("Path is required for a Text object - there is no text without a path")
+        
+        # Use path as ID - this is the key change
+        text_id = values["path"]
+            
         return cls(
-            id=text_id,
+            id=text_id,  # Set id equal to path
             group_name=values["group_name"],
             work_name=values["work_name"],
             language=values["language"],
             wordcount=values["wordcount"],
             author_id=values["author_id"],
-            path=values.get("path"),  # Path must come from catalog
+            path=values["path"],  # Path is required
             archived=values.get("archived", False),
             favorite=values.get("favorite", False),
         )
@@ -106,7 +105,7 @@ class Text:
             "language": self.language,
             "wordcount": self.wordcount,
             "author_id": self.author_id,
-            "path": self.path,  # Path from catalog
+            "path": self.path,  # Path is required and defines the text
             "archived": self.archived,
             "favorite": self.favorite,
         }

@@ -181,7 +181,7 @@ class CatalogService:
 
                     # Create text entry for this edition
                     text_entry = {
-                        "id": f"{author_id}.{work_id}.{edition_id}",  # Create stable ID
+                        "id": file_path,  # Use the canonical path as the stable ID
                         "urn": edition_urn,
                         "group_name": author_data.get("name", "Unknown Author"),
                         "work_name": work_name,
@@ -206,7 +206,7 @@ class CatalogService:
 
                     # Create text entry for this translation
                     text_entry = {
-                        "id": f"{author_id}.{work_id}.{translation_id}",  # Create stable ID
+                        "id": file_path,  # Use the canonical path as the stable ID
                         "urn": translation_urn,
                         "group_name": author_data.get("name", "Unknown Author"),
                         "work_name": f"{work_name} ({language} translation)",
