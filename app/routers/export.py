@@ -10,6 +10,7 @@ This module provides endpoints for text export functionality including:
 
 import asyncio
 import logging
+import os
 import uuid
 import zipfile
 from datetime import datetime
