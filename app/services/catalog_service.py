@@ -341,6 +341,20 @@ class CatalogService:
 
         return result
 
+    def get_author_by_id(self, author_id: str) -> Optional[Author]:
+        """Get an author by their ID.
+        
+        Args:
+            author_id: The ID of the author
+            
+        Returns:
+            The author object or None if not found
+        """
+        if not self._unified_catalog or not self._unified_catalog.authors:
+            return None
+            
+        return self._unified_catalog.authors.get(author_id)
+
     def archive_text_by_id(self, text_id: str, archive: bool = True) -> bool:
         """Archive or unarchive a text by its ID.
 

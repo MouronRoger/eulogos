@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from starlette.responses import Response as TemplateResponse
 from loguru import logger
+from pathlib import Path as PathLib
 
 from app.dependencies import get_catalog_service, get_xml_service
 from app.services.catalog_service import CatalogService
@@ -364,4 +365,218 @@ async def get_text(
         )
     except Exception as e:
         logger.error(f"Error processing text: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing text: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error processing text: {str(e)}")
+
+
+@router.get("/read/path/{path:path}", response_class=HTMLResponse)
+async def read_text_by_path(
+    request: Request,
+    path: str = Path(..., description="File path relative to data directory"),
+    reference: Optional[str] = Query(None, description="Optional reference to navigate to"),
+    xml_service: XMLProcessorService = Depends(get_xml_service),
+    catalog_service: CatalogService = Depends(get_catalog_service),
+):
+    """Read a text by its canonical path.
+
+    Args:
+        request: FastAPI request object
+        path: File path relative to data directory
+        reference: Optional reference to navigate to
+        xml_service: XML service for processing text
+        catalog_service: CatalogService instance
+
+    Returns:
+        HTMLResponse with rendered text
+    """
+    try:
+        # Try to find the text metadata by path in the catalog
+        text = None
+        for t in catalog_service._texts_by_id.values():
+            if t.path == path:
+                text = t
+                break
+        
+        # Load the document directly by path (no catalog lookup)
+        xml_root = xml_service.load_xml_from_path(path)
+        
+        # Get the HTML content
+        html_content = xml_service._transform_element_to_html(xml_root)
+        
+        # Get adjacent references for navigation if a reference is provided
+        adjacent_refs = xml_service.get_adjacent_references(xml_root, reference) if reference else {"prev": None, "next": None}
+        
+        # Get author if available and text was found
+        author = None
+        if text and text.author_id:
+            author = catalog_service.get_author_by_id(text.author_id)
+            
+        # Render the template with the processed content
+        return templates.TemplateResponse(
+            request,
+            "reader.html",
+            {
+                "text": text,
+                "author": author,
+                "content": html_content,
+                "path": path,
+                "reference": reference,
+                "prev_ref": adjacent_refs["prev"],
+                "next_ref": adjacent_refs["next"],
+                "title": text.work_name if text else path, 
+            },
+        )
+    except FileNotFoundError:
+        logger.error(f"File not found: {path}")
+        raise HTTPException(status_code=404, detail=f"File not found: {path}")
+    except Exception as e:
+        logger.exception(f"Error processing text at path {path}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing text: {str(e)}")
+
+
+@router.get("/references/path/{path:path}", response_class=JSONResponse)
+async def get_references_by_path(
+    path: str = Path(..., description="File path relative to data directory"),
+    xml_service: XMLProcessorService = Depends(get_xml_service),
+):
+    """Get all references for a text by its canonical path.
+
+    Args:
+        path: File path relative to data directory
+        xml_service: XML service for processing
+
+    Returns:
+        JSONResponse with all references
+    """
+    try:
+        # Load and process the document directly by path
+        xml_root = xml_service.load_xml_from_path(path)
+        
+        # Get all references
+        references = xml_service.extract_references(xml_root)
+        
+        # Return just the list of reference strings
+        return {"references": sorted(references.keys(), key=lambda x: [int(n) if n.isdigit() else n for n in x.split(".")])}
+    except FileNotFoundError:
+        logger.error(f"File not found: {path}")
+        raise HTTPException(status_code=404, detail=f"File not found: {path}")
+    except Exception as e:
+        logger.exception(f"Error processing references: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing references: {str(e)}")
+
+
+@router.get("/passage/path/{path:path}/{reference}", response_class=HTMLResponse)
+async def get_passage_by_path(
+    request: Request,
+    path: str = Path(..., description="File path relative to data directory"),
+    reference: str = Path(..., description="Reference string"),
+    xml_service: XMLProcessorService = Depends(get_xml_service),
+):
+    """Get a specific passage from a text by reference using canonical path.
+
+    Args:
+        request: FastAPI request object
+        path: File path relative to data directory
+        reference: Reference string
+        xml_service: XML service for processing
+
+    Returns:
+        HTMLResponse with the specific passage
+    """
+    try:
+        # Load and process the document directly by path
+        xml_root = xml_service.load_xml_from_path(path)
+        
+        # Get the specific passage
+        passage = xml_service.get_passage_by_reference(xml_root, reference)
+        if not passage:
+            logger.error(f"Reference not found: {reference}")
+            raise HTTPException(status_code=404, detail=f"Reference not found: {reference}")
+        
+        # Transform the passage to HTML
+        html_content = xml_service._process_element_to_html(passage, reference)
+        
+        # Get adjacent references for navigation
+        adjacent_refs = xml_service.get_adjacent_references(xml_root, reference)
+        
+        # Render the passage template
+        return templates.TemplateResponse(
+            request,
+            "partials/passage.html",
+            {
+                "content": html_content,
+                "path": path,
+                "reference": reference,
+                "prev_ref": adjacent_refs["prev"],
+                "next_ref": adjacent_refs["next"],
+            },
+        )
+    except FileNotFoundError:
+        logger.error(f"File not found: {path}")
+        raise HTTPException(status_code=404, detail=f"File not found: {path}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error processing passage: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing passage: {str(e)}")
+
+
+@router.post("/texts/path/{path:path}/archive")
+async def archive_text_by_path(
+    path: str = Path(..., description="File path relative to data directory"),
+    archive: bool = Query(True, description="True to archive, False to unarchive"),
+    catalog_service: CatalogService = Depends(get_catalog_service),
+):
+    """Archive or unarchive a text by its canonical path.
+
+    Args:
+        path: File path relative to data directory
+        archive: True to archive, False to unarchive
+        catalog_service: CatalogService instance
+
+    Returns:
+        JSON response indicating success or failure
+    """
+    # Find the text by path in the catalog
+    text = None
+    for t in catalog_service._texts_by_id.values():
+        if t.path == path:
+            text = t
+            break
+    
+    if not text:
+        raise HTTPException(status_code=404, detail=f"Text not found for path: {path}")
+    
+    success = catalog_service.archive_text_by_id(text.id, archive)
+    return {"success": success, "archived": archive}
+
+
+@router.post("/texts/path/{path:path}/favorite")
+async def favorite_text_by_path(
+    path: str = Path(..., description="File path relative to data directory"),
+    catalog_service: CatalogService = Depends(get_catalog_service),
+):
+    """Toggle favorite status for a text by its canonical path.
+
+    Args:
+        path: File path relative to data directory
+        catalog_service: CatalogService instance
+
+    Returns:
+        JSON response indicating success and the new favorite status
+    """
+    # Find the text by path in the catalog
+    text = None
+    for t in catalog_service._texts_by_id.values():
+        if t.path == path:
+            text = t
+            break
+    
+    if not text:
+        raise HTTPException(status_code=404, detail=f"Text not found for path: {path}")
+    
+    success = catalog_service.toggle_text_favorite_by_id(text.id)
+    
+    # Get the updated text to get the current favorite status
+    text = catalog_service.get_text_by_id(text.id)
+    
+    return {"success": success, "favorite": text.favorite if text else False} 

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
@@ -330,6 +331,69 @@ async def search_texts(request: Request, q: str = ""):
     return JSONResponse(content={"results": results})
 
 
+@app.get("/read/id/{text_id}", response_class=HTMLResponse)
+async def read_by_id(
+    request: Request,
+    text_id: str,
+    reference: Optional[str] = None
+):
+    """Read a text by its ID.
+    
+    This endpoint handles /read/id/{text_id} URLs from browse pages.
+    The template links to /read/id/{edition.id} - reroute to API endpoint.
+    """
+    try:
+        # Get query parameters
+        reference = request.query_params.get("reference")
+
+        # Create dependencies
+        from app.dependencies import get_catalog_service, get_xml_service
+        catalog_service = get_catalog_service()
+        xml_service = get_xml_service()
+        
+        # Look up the text in the catalog
+        text = catalog_service.get_text_by_id(text_id)
+        if not text:
+            raise HTTPException(status_code=404, detail=f"Text not found: {text_id}")
+
+        # Continue with standard processing
+        # Get the actual content path
+        if not text.path:
+            raise HTTPException(status_code=404, detail=f"No path found for text: {text_id}")
+
+        # Load and process the document
+        xml_root = xml_service.load_document(text_id)
+        
+        # Get the HTML content and transform it
+        html_content = xml_service.transform_to_html(text_id, reference)
+        
+        # Get adjacent references for navigation if a reference is provided
+        adjacent_refs = xml_service.get_adjacent_references(xml_root, reference) if reference else {"prev": None, "next": None}
+
+        # Get author if available
+        author = None
+        if text.author_id:
+            author = catalog_service.get_author_by_id(text.author_id)
+
+        # Render the template with the processed content
+        return templates.TemplateResponse(
+            "reader.html",
+            {
+                "request": request,
+                "text": text,
+                "author": author,
+                "content": html_content,
+                "reference": reference,
+                "prev_ref": adjacent_refs["prev"],
+                "next_ref": adjacent_refs["next"],
+                "path": text.path
+            },
+        )
+    except Exception as e:
+        logger.exception(f"Error processing text ID {text_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing text: {str(e)}")
+
+
 @app.get("/read/{path:path}", response_class=HTMLResponse)
 async def read_formatted_text(request: Request, path: str):
     """Read and format XML text for display in a readable format.
@@ -403,29 +467,44 @@ async def read_formatted_text(request: Request, path: str):
                             break
         
         # Create XML processor
-        from app.services.xml_processor import XMLProcessorService
-        xml_processor = XMLProcessorService(data_dir="data")
+        from app.services.xml_processor_service import XMLProcessorService
+        from app.services.catalog_service import CatalogService
+        
+        # Create services
+        catalog_service = CatalogService(catalog_path=str(CATALOG_PATH), data_dir=str(DATA_DIR))
+        catalog_service.create_unified_catalog()
+        xml_processor = XMLProcessorService(catalog_service=catalog_service, data_path=str(DATA_DIR))
         
         # Load the XML content
-        xml_content = xml_processor.load_xml_from_path(path)
+        xml_root = xml_processor.load_xml_from_path(path)
         
         # Handle reference-based display if specified
         if reference:
-            references = xml_processor.get_references(xml_content, path)
+            # Get passage by reference
+            passage = xml_processor.get_passage_by_reference(xml_root, reference)
+            if passage:
+                html_content = xml_processor._process_element_to_html(passage, reference)
+                adjacent_refs = xml_processor.get_adjacent_references(xml_root, reference)
+            else:
+                html_content = f"<p>Reference '{reference}' not found.</p>"
+                adjacent_refs = {"prev": None, "next": None}
+                
             return templates.TemplateResponse(
                 "reader.html",
                 {
                     "request": request,
                     "text": text_metadata,
-                    "content": references,
+                    "content": html_content,
                     "path": path,
                     "title": text_metadata.get("label") if text_metadata else path,
                     "current_ref": reference,
+                    "prev_ref": adjacent_refs["prev"],
+                    "next_ref": adjacent_refs["next"],
                 },
             )
         
         # Format the XML for display
-        formatted_text = xml_processor.format_xml_for_display(xml_content)
+        html_content = xml_processor._transform_element_to_html(xml_root)
         
         # Render the reader template
         return templates.TemplateResponse(
@@ -433,14 +512,14 @@ async def read_formatted_text(request: Request, path: str):
             {
                 "request": request,
                 "text": text_metadata,
-                "content": formatted_text,
+                "content": html_content,
                 "path": path,
                 "title": text_metadata.get("label") if text_metadata else path,
             },
         )
         
     except Exception as e:
-        logger.error(f"Error processing XML: {str(e)}")
+        logger.error(f"Error processing XML: {str(e)}", exc_info=True)
         return templates.TemplateResponse(
             "reader.html",
             {

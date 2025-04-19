@@ -359,4 +359,81 @@ async def export_single_by_id(
         return {"message": "Export successful", "path": str(path), "format": options.format, "text_id": text_id}
     except Exception as e:
         logger.error(f"Error exporting text ID {text_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+
+@router.post("/path/{path:path}")
+@requires_scope(["export:texts"])
+async def export_single_by_path(
+    path: str = PathParam(..., description="The canonical path to the text from catalog"),
+    options: ExportOptions = None,
+    current_user: User = Depends(get_current_user),
+    catalog_service: CatalogService = Depends(get_catalog_service),
+    xml_service: XMLProcessorService = Depends(get_xml_service),
+) -> Dict[str, Any]:
+    """Export single text by its canonical path.
+    
+    Args:
+        path: The canonical path to the text (as found in catalog)
+        options: Export options
+        current_user: Current authenticated user
+        catalog_service: Catalog service
+        xml_service: XML service
+        
+    Returns:
+        Export result with path and format
+        
+    Raises:
+        HTTPException: If text not found or export fails
+    """
+    # Find the text by path in the catalog
+    text = None
+    for t in catalog_service._texts_by_id.values():
+        if t.path == path:
+            text = t
+            break
+    
+    text_id = text.id if text else None
+        
+    # Create export service
+    export_service = ExportService(
+        catalog_service=catalog_service, xml_service=xml_service, output_dir="exports/single"
+    )
+
+    try:
+        # Can we directly load XML from path?
+        xml_root = xml_service.load_xml_from_path(path)
+        
+        # Set options for use in metadata
+        options_dict = options.dict() if options else {}
+        
+        # Check if we need to modify the ExportService to handle paths directly
+        # For now, we'll use the text ID if available, or work with the path directly
+        if text_id:
+            if options.format == "html":
+                output_path = export_service.export_to_html(text_id, options_dict)
+            elif options.format == "markdown":
+                output_path = export_service.export_to_markdown(text_id, options_dict)
+            elif options.format == "latex":
+                output_path = export_service.export_to_latex(text_id, options_dict)
+            elif options.format == "pdf":
+                output_path = export_service.export_to_pdf(text_id, options_dict)
+            elif options.format == "epub":
+                output_path = export_service.export_to_epub(text_id, options_dict)
+            else:
+                raise HTTPException(status_code=400, detail=f"Unsupported format: {options.format}")
+        else:
+            # For direct path handling, we might need to extend ExportService
+            # This is a placeholder that needs implementation in the service
+            raise HTTPException(status_code=501, detail="Direct path-based export not implemented")
+
+        return {
+            "message": "Export successful", 
+            "path": str(output_path), 
+            "format": options.format, 
+            "text_path": path,
+            "text_id": text_id
+        }
+    except Exception as e:
+        logger.error(f"Error exporting path {path}: {e}")
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}") 
