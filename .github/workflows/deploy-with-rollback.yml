@@ -295,9 +295,11 @@ jobs:
       - name: Upload deployment records
         uses: actions/upload-artifact@v4
         with:
-          name: deployment-records
+          name: deployment-records-${{ needs.prepare.outputs.image_tag }}
           path: logs/deployments/
           retention-days: 90
+          if-no-files-found: warn
+          overwrite: true
 
   verify:
     runs-on: ubuntu-latest
@@ -312,7 +314,7 @@ jobs:
       - name: Download deployment records
         uses: actions/download-artifact@v4
         with:
-          name: deployment-records
+          name: deployment-records-${{ needs.prepare.outputs.image_tag }}
           path: logs/deployments
 
       - name: Set up Python
@@ -379,9 +381,11 @@ jobs:
       - name: Upload updated deployment records
         uses: actions/upload-artifact@v4
         with:
-          name: deployment-records
+          name: deployment-records-${{ needs.prepare.outputs.image_tag }}-verified
           path: logs/deployments/
           retention-days: 90
+          if-no-files-found: warn
+          overwrite: true
 
       - name: Notify on failure
         if: steps.verify.outputs.verification_passed == 'false'
