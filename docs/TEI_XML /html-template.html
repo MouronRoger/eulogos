@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="{{ metadata.get('language', 'grc') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        /* Default styles */
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            font-family: 'Times New Roman', Times, serif;
+            line-height: 1.6;
+            color: #1a202c;
+            background-color: #ffffff;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+        .metadata {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-style: italic;
+            color: #4a5568;
+        }
+        .creators {
+            margin: 1rem 0;
+        }
+        .content-wrapper {
+            margin-top: 2rem;
+        }
+        
+        /* TEI XML styles */
+        /* Main structural elements */
+        div[data-reference] {
+            margin: 1.5rem 0;
+            padding: 0.5rem;
+            border-left: 3px solid #e2e8f0;
+            background-color: #f8fafc;
+        }
+        
+        /* Section numbers and headers */
+        .section-num {
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 0.5rem;
+            font-size: 1.1em;
+        }
+        
+        .section-num a {
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        /* Content area */
+        .content {
+            margin-left: 0.5rem;
+        }
+        
+        /* Paragraphs */
+        p.p, .tei-p {
+            margin-bottom: 1.25em;
+            line-height: 1.7;
+        }
+        
+        /* Paragraph alignment */
+        p.align\(center\) {
+            text-align: center;
+        }
+        
+        p.align\(indent\) {
+            text-indent: 2em;
+        }
+        
+        p.align\(right\) {
+            text-align: right;
+        }
+        
+        /* Headings */
+        h3.head, .tei-head {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: #1f2937;
+        }
+        
+        /* Lines in poetry or verse */
+        span.line, .tei-l {
+            display: block;
+            margin-left: 2em;
+            text-indent: -2em;
+            line-height: 1.6;
+        }
+        
+        /* Notes */
+        .note, .tei-note {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin: 0.5rem 0;
+            padding-left: 1rem;
+            border-left: 2px solid #d1d5db;
+        }
+        
+        /* Quotes */
+        .quote, .tei-quote {
+            margin: 1rem 0;
+            padding: 0.5rem 1rem;
+            background-color: #f3f4f6;
+            border-left: 3px solid #9ca3af;
+            font-style: italic;
+        }
+        
+        /* Foreign text */
+        .foreign, .tei-foreign {
+            font-style: italic;
+        }
+        
+        /* Bibliography entries */
+        .bibl, .tei-bibl {
+            font-style: normal;
+            color: #4b5563;
+            font-size: 0.875rem;
+        }
+        
+        /* References */
+        .ref, .tei-ref {
+            color: #2563eb;
+            text-decoration: none;
+        }
+        
+        .ref:hover, .tei-ref:hover {
+            text-decoration: underline;
+        }
+        
+        /* Milestones */
+        .milestone, .tei-milestone {
+            display: inline-block;
+            position: relative;
+            height: 1em;
+            width: 1em;
+            margin: 0 0.25em;
+            vertical-align: middle;
+        }
+        
+        .milestone::after, .tei-milestone::after {
+            content: attr(data-n);
+            position: absolute;
+            top: -0.8em;
+            right: -1em;
+            font-size: 0.7em;
+            background-color: #e5e7eb;
+            color: #4b5563;
+            padding: 0.1em 0.3em;
+            border-radius: 2px;
+        }
+        
+        /* Greek-specific styling */
+        .greek-text {
+            font-family: 'New Athena Unicode', 'GFS Porson', serif;
+        }
+        
+        /* Special markup */
+        .unclear, .tei-unclear {
+            color: #6b7280;
+            border-bottom: 1px dotted #6b7280;
+        }
+        
+        .gap, .tei-gap {
+            display: inline-block;
+            width: 3em;
+            border-bottom: 2px dashed #6b7280;
+            height: 0.5em;
+            vertical-align: middle;
+        }
+        
+        .supplied, .tei-supplied {
+            color: #4b5563;
+            font-style: italic;
+        }
+        
+        /* Added styling for TEI-specific elements */
+        .tei-title {
+            font-style: italic;
+        }
+        
+        .tei-person {
+            color: #047857;
+        }
+        
+        .tei-place {
+            color: #7c3aed;
+        }
+        
+        .tei-date {
+            color: #b91c1c;
+        }
+        
+        /* For print-specific styles */
+        @media print {
+            @page {
+                margin: 2cm;
+                size: A4;
+            }
+            
+            body {
+                font-size: 11pt;
+                max-width: none;
+                padding: 0;
+                margin: 0;
+                color: black;
+            }
+            
+            div[data-reference] {
+                page-break-inside: avoid;
+                break-inside: avoid;
+                border-left: 0.5pt solid #bbb;
+                background-color: transparent;
+            }
+            
+            h3 {
+                page-break-after: avoid;
+                break-after: avoid;
+            }
+            
+            .note {
+                border-left: 0.5pt solid #bbb;
+                color: #555;
+            }
+            
+            .quote {
+                background-color: transparent;
+                border-left: 0.5pt solid #bbb;
+            }
+            
+            .section-num {
+                color: #555;
+            }
+            
+            p {
+                orphans: 3;
+                widows: 3;
+            }
+            
+            a, .ref {
+                color: black;
+                text-decoration: none;
+            }
+            
+            .milestone::after {
+                background-color: transparent;
+                color: #555;
+            }
+        }
+        
+        /* Custom CSS */
+        {{ css | safe }}
+    </style>
+</head>
+<body>
+    <h1>{{ title }}</h1>
+
+    <div class="metadata">
+        {% if metadata.get('author') %}
+        <div class="creators">
+            By {{ metadata.get('author') }}
+        </div>
+        {% endif %}
+
+        {% if metadata.get('editor') %}
+        <div class="editor">
+            Edited by {{ metadata.get('editor') }}
+        </div>
+        {% endif %}
+
+        {% if metadata.get('translator') %}
+        <div class="translator">
+            Translated by {{ metadata.get('translator') }}
+        </div>
+        {% endif %}
+
+        {% if metadata.get('language') %}
+        <div class="language">
+            Language: {{ metadata.get('language') }}
+        </div>
+        {% endif %}
+
+        {% if metadata.get('date') %}
+        <div class="date">
+            Date: {{ metadata.get('date') }}
+        </div>
+        {% endif %}
+
+        <!-- text_id is the full data path including file name -->
+        {% if metadata.get('text_id') %}
+        <div class="text-id">
+            File Path: {{ metadata.get('text_id') }}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="content-wrapper">
+        {{ content | safe }}
+    </div>
+    
+    <!-- Note: text_id in this template is always the full data path to the file -->
+</body>
+</html>

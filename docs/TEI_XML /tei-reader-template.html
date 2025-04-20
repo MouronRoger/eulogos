@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+
+{% block title %}{{ text.title }} - Eulogos{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* TEI XML styles - see full styling guide for details */
+    /* Main structural elements */
+    div[data-reference] {
+        margin: 1.5rem 0;
+        padding: 0.5rem;
+        border-left: 3px solid #e2e8f0;
+        background-color: #f8fafc;
+    }
+    
+    /* Dark mode support */
+    .dark-mode div[data-reference] {
+        background-color: rgba(31, 41, 55, 0.8);
+        border-left: 3px solid #4b5563;
+    }
+    
+    /* Section numbers and headers */
+    .section-num {
+        font-weight: 600;
+        color: #4b5563;
+        margin-bottom: 0.5rem;
+        font-size: 1.1em;
+    }
+    
+    .dark-mode .section-num {
+        color: #9ca3af;
+    }
+    
+    .section-num a {
+        text-decoration: none;
+        color: inherit;
+    }
+    
+    .section-num a:hover {
+        text-decoration: underline;
+    }
+    
+    /* Content area */
+    .content {
+        margin-left: 0.5rem;
+    }
+    
+    /* Paragraphs */
+    p.p, .tei-p {
+        margin-bottom: 1.25em;
+        line-height: 1.7;
+    }
+    
+    /* Paragraph alignment */
+    p.align\(center\) {
+        text-align: center;
+    }
+    
+    p.align\(indent\) {
+        text-indent: 2em;
+    }
+    
+    p.align\(right\) {
+        text-align: right;
+    }
+    
+    /* Headings */
+    h3.head, .tei-head {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        color: #1f2937;
+    }
+    
+    .dark-mode h3.head, .dark-mode .tei-head {
+        color: #f3f4f6;
+    }
+    
+    /* Lines in poetry or verse */
+    span.line, .tei-l {
+        display: block;
+        margin-left: 2em;
+        text-indent: -2em;
+        line-height: 1.6;
+    }
+    
+    /* Notes */
+    .note, .tei-note {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin: 0.5rem 0;
+        padding-left: 1rem;
+        border-left: 2px solid #d1d5db;
+    }
+    
+    .dark-mode .note, .dark-mode .tei-note {
+        color: #9ca3af;
+        border-left-color: #6b7280;
+    }
+    
+    /* Quotes */
+    .quote, .tei-quote {
+        margin: 1rem 0;
+        padding: 0.5rem 1rem;
+        background-color: #f3f4f6;
+        border-left: 3px solid #9ca3af;
+        font-style: italic;
+    }
+    
+    .dark-mode .quote, .dark-mode .tei-quote {
+        background-color: #374151;
+        border-left-color: #9ca3af;
+    }
+    
+    /* Foreign text */
+    .foreign, .tei-foreign {
+        font-style: italic;
+    }
+    
+    /* Bibliography entries */
+    .bibl, .tei-bibl {
+        font-style: normal;
+        color: #4b5563;
+        font-size: 0.875rem;
+    }
+    
+    .dark-mode .bibl, .dark-mode .tei-bibl {
+        color: #9ca3af;
+    }
+    
+    /* References */
+    .ref, .tei-ref {
+        color: #2563eb;
+        text-decoration: none;
+    }
+    
+    .ref:hover, .tei-ref:hover {
+        text-decoration: underline;
+    }
+    
+    .dark-mode .ref, .dark-mode .tei-ref {
+        color: #3b82f6;
+    }
+    
+    /* Milestones */
+    .milestone, .tei-milestone {
+        display: inline-block;
+        position: relative;
+        height: 1em;
+        width: 1em;
+        margin: 0 0.25em;
+        vertical-align: middle;
+    }
+    
+    .milestone::after, .tei-milestone::after {
+        content: attr(data-n);
+        position: absolute;
+        top: -0.8em;
+        right: -1em;
+        font-size: 0.7em;
+        background-color: #e5e7eb;
+        color: #4b5563;
+        padding: 0.1em 0.3em;
+        border-radius: 2px;
+    }
+    
+    .dark-mode .milestone::after, .dark-mode .tei-milestone::after {
+        background-color: #4b5563;
+        color: #e5e7eb;
+    }
+    
+    /* Greek-specific styling */
+    .greek-text {
+        font-family: 'New Athena Unicode', 'GFS Porson', serif;
+    }
+    
+    /* Font size presets */
+    .text-size-small { font-size: 0.875rem; }
+    .text-size-medium { font-size: 1rem; }
+    .text-size-large { font-size: 1.125rem; }
+    .text-size-xl { font-size: 1.25rem; }
+
+    /* Line height presets */
+    .leading-comfortable { line-height: 1.8; }
+    .leading-relaxed { line-height: 2; }
+    .leading-spacious { line-height: 2.2; }
+</style>
+{% endblock %}
+
+{% block header_actions %}
+<a href="/browse" class="px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded text-white">Back to Browse</a>
+{% endblock %}
+
+{% block content %}
+<div
+    x-data="{
+        darkMode: false,
+        fontSize: 'medium',
+        lineHeight: 'comfortable',
+        showToc: false,
+        showControls: false,
+        showExport: false
+    }"
+    :class="{ 'dark-mode': darkMode }"
+>
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+        <!-- Text header -->
+        <div class="border-b border-gray-200 dark:border-gray-700 p-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ text.title }}</h1>
+                    <div class="mt-1 text-gray-600 dark:text-gray-400">
+                        <p>{{ text.author }}</p>
+                        <p>Language: {{ text.language }}</p>
+                        {% if text.word_count %}
+                        <p>Word count: {{ text.word_count }}</p>
+                        {% endif %}
+                        {% if text.editor %}
+                        <p>Editor: {{ text.editor }}</p>
+                        {% endif %}
+                        <!-- text_id is the full path to the file in the data directory -->
+                        <p><strong>File Path (ID):</strong> {{ text.path }}</p>
+                    </div>
+                </div>
+
+                <!-- Reading controls button -->
+                <div class="relative">
+                    <button
+                        @click="showControls = !showControls"
+                        class="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                    >
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                        </svg>
+                    </button>
+
+                    <!-- Reading controls dropdown -->
+                    <div
+                        x-show="showControls"
+                        @click.away="showControls = false"
+                        class="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                    >
+                        <div class="p-4 space-y-4">
+                            <!-- Dark mode toggle -->
+                            <div>
+                                <label class="flex items-center cursor-pointer">
+                                    <div class="relative">
+                                        <input type="checkbox" x-model="darkMode" class="sr-only">
+                                        <div class="w-10 h-6 bg-gray-300 rounded-full"></div>
+                                        <div
+                                            class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition transform"
+                                            :class="darkMode ? 'translate-x-4' : ''"
+                                        ></div>
+                                    </div>
+                                    <span class="ml-3 text-sm">Dark mode</span>
+                                </label>
+                            </div>
+
+                            <!-- Font size -->
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Font Size</label>
+                                <select
+                                    x-model="fontSize"
+                                    class="w-full rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"
+                                >
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large">Large</option>
+                                    <option value="xl">Extra Large</option>
+                                </select>
+                            </div>
+
+                            <!-- Line height -->
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Line Height</label>
+                                <select
+                                    x-model="lineHeight"
+                                    class="w-full rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700"
+                                >
+                                    <option value="comfortable">Comfortable</option>
+                                    <option value="relaxed">Relaxed</option>
+                                    <option value="spacious">Spacious</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Text controls -->
+            <div class="mt-4 flex space-x-2">
+                <!-- Export dropdown -->
+                <div class="relative">
+                    <button
+                        @click="showExport = !showExport"
+                        class="px-2 py-1 bg-blue-600 text-white rounded text-sm"
+                    >
+                        Export
+                    </button>
+                    <div
+                        x-show="showExport"
+                        @click.away="showExport = false"
+                        class="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded shadow-lg z-50"
+                    >
+                        <div class="py-1">
+                            <!-- The path is used as text_id - path is the full data path + filename -->
+                            <a href="/export/{{ text.path }}?format=pdf" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">PDF</a>
+                            <a href="/export/{{ text.path }}?format=epub" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">ePub</a>
+                            <a href="/export/{{ text.path }}?format=markdown" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Markdown</a>
+                            <a href="/export/{{ text.path }}?format=html" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">HTML</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reference navigation -->
+        {% if current_ref %}
+        <div class="border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600 dark:text-gray-400">
+                    Currently viewing: <strong>{{ current_ref }}</strong>
+                </span>
+                <div class="flex space-x-2">
+                    {% if prev_ref %}
+                    <a
+                        href="/read/{{ text.path }}?reference={{ prev_ref }}"
+                        class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                        Previous
+                    </a>
+                    {% else %}
+                    <button disabled class="px-3 py-1 bg-gray-400 text-white rounded cursor-not-allowed">
+                        Previous
+                    </button>
+                    {% endif %}
+
+                    {% if next_ref %}
+                    <a
+                        href="/read/{{ text.path }}?reference={{ next_ref }}"
+                        class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                        Next
+                    </a>
+                    {% else %}
+                    <button disabled class="px-3 py-1 bg-gray-400 text-white rounded cursor-not-allowed">
+                        Next
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Reference browser -->
+        <div class="border-b border-gray-200 dark:border-gray-700">
+            <button
+                @click="showToc = !showToc"
+                class="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-900 flex items-center"
+            >
+                <span x-text="showToc ? 'Hide References' : 'Show References'"></span>
+                <svg
+                    class="w-4 h-4 ml-2 transform transition-transform"
+                    :class="{ 'rotate-180': showToc }"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+
+            <div x-show="showToc" class="border-t border-gray-200 dark:border-gray-700">
+                <div
+                    class="p-4 max-h-64 overflow-y-auto"
+                    hx-get="/references/{{ text.path }}"
+                    hx-trigger="load"
+                    hx-target="this"
+                >
+                    Loading references...
+                </div>
+            </div>
+        </div>
+
+        <!-- Text content -->
+        <div
+            id="reader-container"
+            class="p-6 prose max-w-none"
+            :class="{
+                'text-size-small': fontSize === 'small',
+                'text-size-medium': fontSize === 'medium',
+                'text-size-large': fontSize === 'large',
+                'text-size-xl': fontSize === 'xl',
+                'leading-comfortable': lineHeight === 'comfortable',
+                'leading-relaxed': lineHeight === 'relaxed',
+                'leading-spacious': lineHeight === 'spacious'
+            }"
+        >
+            {{ content|safe }}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Script to handle note references
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle note visibility when clicking on a note reference
+        document.querySelectorAll('.tei-note-ref').forEach(function(noteRef) {
+            noteRef.addEventListener('click', function() {
+                const noteId = this.dataset.target;
+                const note = document.getElementById(noteId);
+                if (note) {
+                    note.style.display = note.style.display === 'block' ? 'none' : 'block';
+                }
+            });
+        });
+    });
+</script>
+
+<!-- 
+    Note: Throughout this template, text.path is used as the text_id
+    The text_id in Eulogos is ALWAYS the full data path including the filename 
+-->
+{% endblock %}

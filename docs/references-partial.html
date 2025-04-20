@@ -1,0 +1,16 @@
+{% if references %}
+<div class="space-y-1">
+    {% for ref in references %}
+    <div class="px-1 py-0.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+        <a href="/read/{{ path }}?reference={{ ref }}" 
+           class="text-blue-600 hover:underline dark:text-blue-400"
+           {% if reference == ref %}class="font-bold"{% endif %}
+        >
+            {{ ref }}
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-gray-500 dark:text-gray-400 italic text-sm">No references found in this text.</p>
+{% endif %}

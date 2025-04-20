@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}{{ text.title }} - Eulogos{% endblock %}
+
+{% block extra_styles %}
+/* Reader-specific styles */
+.reader-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+{% endblock %}
+
+{% block header_actions %}
+<a 
+    href="/browse" 
+    class="px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded text-white"
+>
+    Back to Browse
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reader-container" id="reader-container">
+    <div
+        x-data="{
+            darkMode: false,
+            fontSize: 'medium',
+            lineHeight: 'comfortable',
+            showToc: false,
+            showControls: false
+        }"
+        :class="{ 'dark': darkMode }"
+    >
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+            <!-- Text header -->
+            <div class="border-b border-gray-200 dark:border-gray-700 p-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ text.title }}</h1>
+                        <div class="mt-1 text-gray-600 dark:text-gray-400">
+                            <p>Author: {{ text.author }}</p>
+                            <p>Language: {{ text.language }}</p>
+                            {% if metadata %}
+                                {% if metadata.date %}
+                                    <p>Date: {{ metadata.date }}</p>
+                                {% endif %}
+                                {% if metadata.publisher %}
+                                    <p>Publisher: {{ metadata.publisher }}</p>
+                                {% endif %}
+                            {% endif %}
+                            <p class="text-xs mt-1 text-gray-500">Path: {{ path }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Reading controls button -->
+                    <div class="relative">
+                        <button
+                            @click="showControls = !showControls"
+                            class="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                        >
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Reading controls dropdown -->
+                        <div
+                            x-show="showControls"
+                            @click.away="showControls = false"
+                            class="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                            x-cloak
+                        >
+                            <div class="p-4 space-y-4">
+                                <!-- Dark mode toggle -->
+                                <div>
+                                    <label class="flex items-center cursor-pointer">
+                                        <div class="relative">
+                                            <input type="checkbox" x-model="darkMode" class="sr-only">
+                                            <div class="w-10 h-6 bg-gray-300 rounded-full"></div>
+                                            <div
+                                                class="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform"
+                                                :class="darkMode ? 'translate-x-4 bg-blue-600' : ''"
+                                            ></div>
+                                        </div>
+                                        <span class="ml-3 text-sm dark:text-gray-200">Dark mode</span>
+                                    </label>
+                                </div>
+
+                                <!-- Font size -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Font Size</label>
+                                    <select
+                                        x-model="fontSize"
+                                        class="w-full rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                    >
+                                        <option value="small">Small</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="large">Large</option>
+                                        <option value="xl">Extra Large</option>
+                                    </select>
+                                </div>
+
+                                <!-- Line height -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Line Height</label>
+                                    <select
+                                        x-model="lineHeight"
+                                        class="w-full rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                    >
+                                        <option value="comfortable">Comfortable</option>
+                                        <option value="relaxed">Relaxed</option>
+                                        <option value="spacious">Spacious</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Text controls -->
+                <div class="mt-4 flex space-x-2">
+                    <button
+                        hx-post="/favorite/{{ path }}"
+                        hx-swap="none"
+                        hx-trigger="click"
+                        class="px-2 py-1 {{ 'bg-yellow-600' if text.favorite else 'bg-gray-600' }} text-white rounded text-sm"
+                    >
+                        {{ 'Unfavorite' if text.favorite else 'Favorite' }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Reference navigation -->
+            {% if reference %}
+            <div class="border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">
+                        Currently viewing: <strong>{{ reference }}</strong>
+                    </span>
+                    <div class="flex space-x-2">
+                        {% if prev_ref %}
+                        <a
+                            href="/read/{{ path }}?reference={{ prev_ref }}"
+                            class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                            Previous
+                        </a>
+                        {% else %}
+                        <button disabled class="px-3 py-1 bg-gray-400 text-white rounded cursor-not-allowed">
+                            Previous
+                        </button>
+                        {% endif %}
+
+                        <a href="/read/{{ path }}" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">
+                            Full Text
+                        </a>
+
+                        {% if next_ref %}
+                        <a
+                            href="/read/{{ path }}?reference={{ next_ref }}"
+                            class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                            Next
+                        </a>
+                        {% else %}
+                        <button disabled class="px-3 py-1 bg-gray-400 text-white rounded cursor-not-allowed">
+                            Next
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Reference browser -->
+            {% if has_references %}
+            <div class="border-b border-gray-200 dark:border-gray-700">
+                <button
+                    @click="showToc = !showToc"
+                    class="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-900 flex items-center justify-between text-gray-700 dark:text-gray-300"
+                >
+                    <span x-text="showToc ? 'Hide References' : 'Show References'"></span>
+                    <svg
+                        :class="showToc ? 'transform rotate-180' : ''"
+                        class="w-4 h-4 transition-transform"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+
+                <div x-show="showToc" class="border-t border-gray-200 dark:border-gray-700" x-cloak>
+                    <div
+                        class="p-4 max-h-64 overflow-y-auto"
+                        hx-get="/references/{{ path }}"
+                        hx-trigger="load"
+                        hx-swap="innerHTML"
+                    >
+                        Loading references...
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Text content -->
+            <div
+                class="p-6 prose dark:prose-invert max-w-none greek-text"
+                :class="{
+                    'text-sm': fontSize === 'small',
+                    'text-base': fontSize === 'medium',
+                    'text-lg': fontSize === 'large',
+                    'text-xl': fontSize === 'xl',
+                    'leading-relaxed': lineHeight === 'comfortable',
+                    'leading-loose': lineHeight === 'relaxed',
+                    'leading-loose': lineHeight === 'spacious'
+                }"
+            >
+                {{ content|safe }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
