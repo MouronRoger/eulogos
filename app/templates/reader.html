@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block title %}{{ text.title }} - Eulogos{% endblock %}
+
+{% block extra_styles %}
+<style>
+    /* Reader-specific styles */
+    .reader-container {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-height: 70vh;
+    }
+    
+    .content-container {
+        font-size: 1.1rem;
+        line-height: 1.6;
+        color: #1a202c;
+    }
+    
+    /* Greek text styling */
+    [lang="grc"] {
+        font-family: 'New Athena Unicode', 'GFS Porson', 'Arial Unicode MS', serif;
+    }
+    
+    /* Dark mode toggle */
+    body.dark {
+        background-color: #1a202c;
+        color: #e2e8f0;
+    }
+    
+    body.dark .content-container {
+        color: #e2e8f0;
+    }
+    
+    body.dark .bg-white {
+        background-color: #2d3748 !important;
+    }
+    
+    body.dark .border-gray-200 {
+        border-color: #4a5568 !important;
+    }
+    
+    body.dark .text-gray-900 {
+        color: #e2e8f0 !important;
+    }
+    
+    body.dark .text-gray-700 {
+        color: #cbd5e0 !important;
+    }
+    
+    body.dark .text-gray-600 {
+        color: #a0aec0 !important;
+    }
+    
+    body.dark .shadow {
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+    }
+</style>
+{% endblock %}
+
+{% block header_actions %}
+<button
+    id="toggleDarkMode"
+    class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-4 py-2"
+    title="Toggle dark mode"
+>
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+    </svg>
+</button>
+
+<button
+    hx-post="/favorite/{{ path }}"
+    hx-swap="none"
+    class="text-white {% if text.favorite %}bg-yellow-500 hover:bg-yellow-600{% else %}bg-blue-700 hover:bg-blue-800{% endif %} focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-4 py-2"
+    id="favButton"
+    onclick="toggleFavButton()"
+>
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+    </svg>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="reader-container" x-data="{ 
+    refsOpen: false, 
+    fontSize: 'md',
+    lineHeight: 'md'
+}">
+    <!-- Navigation bar -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <a href="/" class="text-blue-600 hover:text-blue-800 mr-4">
+                &larr; Back to browse
+            </a>
+        </div>
+        
+        <div class="flex space-x-2">
+            <!-- Font size controls -->
+            <div class="inline-flex rounded-md shadow-sm" role="group">
+                <button
+                    @click="fontSize = 'sm'"
+                    :class="fontSize === 'sm' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'"
+                    class="px-4 py-2 text-sm font-medium border border-gray-200 rounded-l-lg hover:bg-gray-100"
+                >
+                    A<span class="text-xs">-</span>
+                </button>
+                <button
+                    @click="fontSize = 'md'"
+                    :class="fontSize === 'md' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'"
+                    class="px-4 py-2 text-sm font-medium border-t border-b border-gray-200 hover:bg-gray-100"
+                >
+                    A
+                </button>
+                <button
+                    @click="fontSize = 'lg'"
+                    :class="fontSize === 'lg' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'"
+                    class="px-4 py-2 text-sm font-medium border border-gray-200 rounded-r-lg hover:bg-gray-100"
+                >
+                    A<span class="text-xs">+</span>
+                </button>
+            </div>
+            
+            <!-- Line height controls -->
+            <div class="inline-flex rounded-md shadow-sm" role="group">
+                <button
+                    @click="lineHeight = 'sm'"
+                    :class="lineHeight === 'sm' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'"
+                    class="px-4 py-2 text-sm font-medium border border-gray-200 rounded-l-lg hover:bg-gray-100"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                    </svg>
+                </button>
+                <button
+                    @click="lineHeight = 'md'"
+                    :class="lineHeight === 'md' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'"
+                    class="px-4 py-2 text-sm font-medium border-t border-b border-gray-200 hover:bg-gray-100"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+                <button
+                    @click="lineHeight = 'lg'"
+                    :class="lineHeight === 'lg' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'"
+                    class="px-4 py-2 text-sm font-medium border border-gray-200 rounded-r-lg hover:bg-gray-100"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5h16M4 10h16M4 15h16M4 20h16" />
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- References toggle -->
+            {% if has_references %}
+            <button
+                @click="refsOpen = !refsOpen"
+                class="px-4 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-100"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                </svg>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Content container -->
+    <div class="flex flex-col md:flex-row gap-8">
+        <!-- References sidebar -->
+        {% if has_references %}
+        <div
+            x-show="refsOpen"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 transform -translate-x-4"
+            x-transition:enter-end="opacity-100 transform translate-x-0"
+            x-transition:leave="transition ease-in duration-300"
+            x-transition:leave-start="opacity-100 transform translate-x-0"
+            x-transition:leave-end="opacity-0 transform -translate-x-4"
+            class="md:w-1/4 bg-white p-4 border border-gray-200 rounded-lg shadow reference-browser"
+            hx-get="/read/references/{{ path }}"
+            hx-trigger="load once"
+            hx-target="this"
+            hx-swap="innerHTML"
+        >
+            Loading references...
+        </div>
+        {% endif %}
+        
+        <!-- Main content -->
+        <div 
+            class="flex-1"
+            :class="{
+                'text-sm leading-relaxed': fontSize === 'sm' && lineHeight === 'sm',
+                'text-sm leading-normal': fontSize === 'sm' && lineHeight === 'md',
+                'text-sm leading-loose': fontSize === 'sm' && lineHeight === 'lg',
+                'text-base leading-relaxed': fontSize === 'md' && lineHeight === 'sm',
+                'text-base leading-normal': fontSize === 'md' && lineHeight === 'md',
+                'text-base leading-loose': fontSize === 'md' && lineHeight === 'lg',
+                'text-lg leading-relaxed': fontSize === 'lg' && lineHeight === 'sm',
+                'text-lg leading-normal': fontSize === 'lg' && lineHeight === 'md',
+                'text-lg leading-loose': fontSize === 'lg' && lineHeight === 'lg'
+            }"
+        >
+            <!-- Text header -->
+            <div class="mb-6">
+                <h1 class="text-2xl font-bold text-gray-900 mb-1">{{ text.title }}</h1>
+                <p class="text-gray-600">by {{ text.author }}</p>
+                
+                {% if metadata %}
+                <details class="mt-4 text-gray-600 text-sm">
+                    <summary class="cursor-pointer font-medium">Additional metadata</summary>
+                    <div class="mt-2 pl-4 border-l-2 border-gray-200">
+                        {% for key, value in metadata.items() %}
+                        <p><strong>{{ key|title }}:</strong> {{ value }}</p>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endif %}
+                
+                <!-- Reference navigation -->
+                {% if reference %}
+                <div class="flex justify-between mt-4 text-blue-600">
+                    {% if prev_ref %}
+                    <a href="/read/{{ path }}?reference={{ prev_ref }}" class="hover:text-blue-800">
+                        &larr; Previous section
+                    </a>
+                    {% else %}
+                    <span></span>
+                    {% endif %}
+                    
+                    {% if next_ref %}
+                    <a href="/read/{{ path }}?reference={{ next_ref }}" class="hover:text-blue-800">
+                        Next section &rarr;
+                    </a>
+                    {% else %}
+                    <span></span>
+                    {% endif %}
+                </div>
+                
+                <div class="mt-2 text-gray-500 text-sm">
+                    Currently viewing: <span class="font-mono bg-gray-100 px-2 py-0.5 rounded">{{ reference }}</span>
+                    <a href="/read/{{ path }}" class="text-blue-600 hover:text-blue-800 ml-2">View full text</a>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Text content -->
+            <div class="content-container bg-white p-6 border border-gray-200 rounded-lg shadow" lang="{{ metadata.language|default(text.language) }}">
+                {{ content|safe }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Dark mode toggle
+    document.getElementById('toggleDarkMode').addEventListener('click', function() {
+        document.body.classList.toggle('dark');
+        localStorage.setItem('darkMode', document.body.classList.contains('dark'));
+    });
+    
+    // Check for saved dark mode preference
+    if (localStorage.getItem('darkMode') === 'true') {
+        document.body.classList.add('dark');
+    }
+    
+    // Favorite button toggle
+    function toggleFavButton() {
+        const btn = document.getElementById('favButton');
+        if (btn.classList.contains('bg-blue-700')) {
+            btn.classList.remove('bg-blue-700', 'hover:bg-blue-800');
+            btn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+        } else {
+            btn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+            btn.classList.add('bg-blue-700', 'hover:bg-blue-800');
+        }
+    }
+</script>
+{% endblock %} 

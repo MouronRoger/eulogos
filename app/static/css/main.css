@@ -1,0 +1,96 @@
+/* 
+ * Custom styles for Eulogos application
+ * These styles supplement the Tailwind CSS framework.
+ */
+
+/* Greek text styling */
+.greek-text {
+    font-family: 'New Athena Unicode', 'GFS Porson', 'Arial Unicode MS', serif;
+}
+
+/* Text reader styles */
+.content-container {
+    line-height: 1.6;
+    color: #1a202c;
+}
+
+/* For any Greek language content */
+[lang="grc"] {
+    font-family: 'New Athena Unicode', 'GFS Porson', 'Arial Unicode MS', serif;
+}
+
+/* TEI structural elements */
+.tei-div, .tei-body, .tei-text {
+    margin: 1rem 0;
+    padding-left: 0.5rem;
+}
+
+/* Section numbers */
+.section-num {
+    font-weight: 600;
+    color: #4b5563;
+    margin-bottom: 0.5rem;
+    font-size: 1.1em;
+}
+
+/* Paragraphs */
+.tei-p {
+    margin-bottom: 1rem;
+    line-height: 1.6;
+}
+
+/* Lines in poetry */
+.tei-l {
+    display: block;
+    margin-left: 2rem;
+    text-indent: -2rem;
+    line-height: 1.6;
+}
+
+/* Headings */
+.tei-head, .tei-title {
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+/* References container */
+.reference-browser {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Dark mode styles */
+body.dark {
+    background-color: #1a202c;
+    color: #e2e8f0;
+}
+
+body.dark .content-container {
+    color: #e2e8f0;
+}
+
+body.dark .bg-white {
+    background-color: #2d3748 !important;
+}
+
+body.dark .border-gray-200 {
+    border-color: #4a5568 !important;
+}
+
+body.dark .text-gray-900 {
+    color: #e2e8f0 !important;
+}
+
+body.dark .text-gray-700 {
+    color: #cbd5e0 !important;
+}
+
+body.dark .text-gray-600 {
+    color: #a0aec0 !important;
+}
+
+body.dark .shadow {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+} 

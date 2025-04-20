@@ -1,0 +1,33 @@
+{% if texts|length > 0 %}
+    <div class="p-3">
+        <h3 class="text-sm font-medium text-gray-900 mb-2">
+            {% if query %}
+                {{ texts|length }} results for "{{ query }}"
+            {% else %}
+                Recent texts
+            {% endif %}
+        </h3>
+        <ul class="space-y-2">
+            {% for text in texts[:5] %}
+                <li>
+                    <a href="/read/{{ text.path }}" class="block p-2 hover:bg-gray-100 rounded-md">
+                        <p class="text-sm font-medium text-gray-900">{{ text.title }}</p>
+                        <p class="text-xs text-gray-500">{{ text.author }}</p>
+                    </a>
+                </li>
+            {% endfor %}
+            
+            {% if texts|length > 5 %}
+                <li class="text-center text-xs text-blue-600 p-2">
+                    <a href="/browse?query={{ query }}" class="hover:underline">
+                        View all {{ texts|length }} results
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </div>
+{% elif query %}
+    <div class="p-3 text-center">
+        <p class="text-sm text-gray-500">No results found for "{{ query }}"</p>
+    </div>
+{% endif %} 
