@@ -28,7 +28,6 @@ class CatalogService:
         self._texts_by_path: Dict[str, Text] = {}
         self._authors: List[str] = []
         self._languages: List[str] = []
-        self._hierarchical_data: Dict[str, Any] = {}
         
         # Load catalog on initialization
         self.load_catalog()
@@ -134,9 +133,6 @@ class CatalogService:
             with open(self.catalog_path, "r", encoding="utf-8") as f:
                 hierarchical_data = json.load(f)
             
-            # Store the hierarchical data
-            self._hierarchical_data = hierarchical_data
-            
             # Transform hierarchical data to flat list
             texts = self._transform_hierarchical_to_flat(hierarchical_data)
             
@@ -189,76 +185,6 @@ class CatalogService:
         except Exception as e:
             logger.error(f"Error saving catalog: {e}")
             return False
-    
-    def get_hierarchical_texts(self, include_archived: bool = False) -> Dict[str, Any]:
-        """Get texts in hierarchical structure.
-        
-        Args:
-            include_archived: Whether to include archived texts
-            
-        Returns:
-            Hierarchical structure of texts organized by author, work, and edition/translation
-        """
-        if not self._hierarchical_data:
-            return {}
-        
-        # Create a deep copy of the hierarchical data to avoid modifying the original
-        hierarchical = {}
-        
-        # Process each author
-        for author_id, author_data in self._hierarchical_data.items():
-            author_copy = author_data.copy()
-            author_copy["works"] = {}
-            
-            # Process each work
-            for work_id, work_data in author_data.get("works", {}).items():
-                work_copy = work_data.copy()
-                work_copy["editions"] = {}
-                work_copy["translations"] = {}
-                
-                # Process editions
-                for edition_id, edition_data in work_data.get("editions", {}).items():
-                    path = edition_data.get("path")
-                    if not path:
-                        continue
-                    
-                    # Get the text object to check archived status
-                    text = self.get_text_by_path(path)
-                    if text and (include_archived or not text.archived):
-                        # Add favorite status to the edition data
-                        edition_copy = edition_data.copy()
-                        if text:
-                            edition_copy["favorite"] = text.favorite
-                            edition_copy["archived"] = text.archived
-                        
-                        work_copy["editions"][edition_id] = edition_copy
-                
-                # Process translations
-                for translation_id, translation_data in work_data.get("translations", {}).items():
-                    path = translation_data.get("path")
-                    if not path:
-                        continue
-                    
-                    # Get the text object to check archived status
-                    text = self.get_text_by_path(path)
-                    if text and (include_archived or not text.archived):
-                        # Add favorite status to the translation data
-                        translation_copy = translation_data.copy()
-                        if text:
-                            translation_copy["favorite"] = text.favorite
-                            translation_copy["archived"] = text.archived
-                        
-                        work_copy["translations"][translation_id] = translation_copy
-                
-                # Only add the work if it has any editions or translations
-                if work_copy["editions"] or work_copy["translations"]:
-                    author_copy["works"][work_id] = work_copy
-            
-            # Only add the author if they have any works
-            if author_copy["works"]:
-                hierarchical[author_id] = author_copy
-        
-        return hierarchical
     
     def get_all_texts(self, include_archived: bool = False) -> List[Text]:
         """Get all texts in the catalog.

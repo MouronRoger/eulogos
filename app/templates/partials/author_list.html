@@ -1,0 +1,26 @@
+{% if authors|length > 0 %}
+<div class="space-y-2">
+    {% for author in authors %}
+    <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+        <a href="/browse?author={{ author }}" class="block text-blue-600 hover:text-blue-800 font-medium">
+            {{ author }}
+        </a>
+    </div>
+    {% endfor %}
+</div>
+
+{% if authors|length > 10 %}
+<div class="mt-4 text-center text-sm text-gray-500">
+    Showing {{ authors|length }} authors
+</div>
+{% endif %}
+
+{% else %}
+<div class="p-4 text-center text-gray-500">
+    {% if query %}
+    No authors found matching "{{ query }}"
+    {% else %}
+    No authors available
+    {% endif %}
+</div>
+{% endif %} 

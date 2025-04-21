@@ -34,7 +34,6 @@ async def root(
             "texts": catalog_service.get_all_texts(),
             "authors": catalog_service.get_all_authors(),
             "languages": catalog_service.get_all_languages(),
-            "hierarchical_texts": catalog_service.get_hierarchical_texts(),
         }
     )
 
@@ -51,7 +50,6 @@ async def browse_texts(
     """Browse texts with optional filtering."""
     # Determine which texts to show based on filters
     texts = []
-    hierarchical_texts = None
     
     if show_favorites:
         texts = catalog_service.get_favorite_texts()
@@ -62,8 +60,6 @@ async def browse_texts(
     elif query:
         texts = catalog_service.search_texts(query)
     else:
-        # For the main view, use hierarchical structure
-        hierarchical_texts = catalog_service.get_hierarchical_texts()
         texts = catalog_service.get_all_texts()
     
     # Render browse template
@@ -72,7 +68,6 @@ async def browse_texts(
         {
             "request": request,
             "texts": texts,
-            "hierarchical_texts": hierarchical_texts,
             "authors": catalog_service.get_all_authors(),
             "languages": catalog_service.get_all_languages(),
             "current_author": author,
@@ -130,17 +125,4 @@ async def set_archived(
     if not success:
         return {"success": False, "message": f"Text not found: {path}"}
     
-    return {"success": True, "archived": archived}
-
-
-@router.post("/unarchive/{path:path}")
-async def unarchive_text(
-    path: str,
-    catalog_service: CatalogService = Depends(get_catalog_service)
-):
-    """Unarchive a text."""
-    success = catalog_service.set_archived(path, False)
-    if not success:
-        return {"success": False, "message": f"Text not found: {path}"}
-    
-    return {"success": True, "archived": False} 
+    return {"success": True, "archived": archived} 

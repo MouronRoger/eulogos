@@ -51,8 +51,11 @@ async def add_template_context(request: Request, call_next):
 
 @app.get("/api/catalog")
 async def get_catalog(catalog_service=Depends(get_catalog_service)):
-    """API endpoint to get the full catalog."""
-    return catalog_service._catalog
+    """API endpoint to get the full catalog in hierarchical structure."""
+    # Return hierarchical structure - single source of truth
+    return {
+        "hierarchical": catalog_service.get_hierarchical_texts(include_archived=True)
+    }
 
 
 @app.get("/health")

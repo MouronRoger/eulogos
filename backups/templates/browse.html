@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Browse Texts - Eulogos{% endblock %}
+
+{% block header_actions %}
+<a href="/" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-4 py-2">
+    All Texts
+</a>
+<a href="/browse?show_favorites=true" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-4 py-2">
+    Favorites
+</a>
+{% endblock %}
+
+{% block content %}
+<div x-data="{ selectedTab: 'authors', filterOpen: false }">
+    <!-- Browse header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">
+            {% if current_author %}
+                Texts by {{ current_author }}
+            {% elif current_language %}
+                Texts in {{ current_language }}
+            {% elif query %}
+                Search Results for "{{ query }}"
+            {% elif show_favorites %}
+                Favorite Texts
+            {% else %}
+                Browse All Texts
+            {% endif %}
+        </h1>
+        
+        {% if current_author or current_language or query or show_favorites %}
+        <p class="mt-2">
+            <a href="/" class="text-blue-600 hover:text-blue-800 font-medium">
+                &larr; Back to all texts
+            </a>
+        </p>
+        {% endif %}
+    </div>
+    
+    <!-- Filter tabs (if showing all texts) -->
+    {% if not current_author and not current_language and not query and not show_favorites %}
+    <div class="border-b border-gray-200 mb-6">
+        <div class="flex justify-between items-center">
+            <ul class="flex flex-wrap -mb-px">
+                <li class="mr-2">
+                    <button @click="selectedTab = 'authors'" :class="selectedTab === 'authors' ? 'border-b-2 border-blue-600 text-blue-600' : 'border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300'" class="inline-block py-4 px-4 font-medium text-sm">
+                        Authors
+                    </button>
+                </li>
+                <li class="mr-2">
+                    <button @click="selectedTab = 'languages'" :class="selectedTab === 'languages' ? 'border-b-2 border-blue-600 text-blue-600' : 'border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300'" class="inline-block py-4 px-4 font-medium text-sm">
+                        Languages
+                    </button>
+                </li>
+            </ul>
+            
+            <button @click="filterOpen = !filterOpen" class="text-gray-500 hover:text-blue-600 font-medium flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filters
+            </button>
+        </div>
+        
+        <!-- Filter panel -->
+        <div x-show="filterOpen" x-cloak class="mt-4 mb-6 p-4 border border-gray-200 rounded-lg">
+            <div x-show="selectedTab === 'authors'" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {% for author in authors %}
+                <a href="/browse?author={{ author }}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                    {{ author }}
+                </a>
+                {% endfor %}
+            </div>
+            <div x-show="selectedTab === 'languages'" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {% for language in languages %}
+                <a href="/browse?language={{ language }}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                    {{ language }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Text grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for text in texts %}
+        <div class="relative bg-white rounded-lg shadow border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+            <div class="p-5">
+                <h3 class="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{{ text.title }}</h3>
+                <p class="text-gray-600 mb-4">by {{ text.author }}</p>
+                <p class="text-sm text-gray-500 mb-4">
+                    <span class="inline-block bg-blue-100 text-blue-800 rounded-full px-2 py-1 text-xs">{{ text.language }}</span>
+                </p>
+                
+                <div class="flex justify-between items-center">
+                    <a href="/read/{{ text.path }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                        Read text &rarr;
+                    </a>
+                    
+                    <button
+                        hx-post="/favorite/{{ text.path }}"
+                        hx-swap="none"
+                        class="text-gray-400 hover:text-yellow-500 focus:outline-none"
+                        onclick="this.classList.toggle('text-yellow-500'); this.classList.toggle('text-gray-400');"
+                        title="Add to favorites"
+                    >
+                        {% if text.favorite %}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                        {% else %}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                        {% endif %}
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- No results message -->
+    {% if texts|length == 0 %}
+    <div class="text-center py-12">
+        <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+        <h3 class="mt-4 text-lg font-medium text-gray-900">No texts found</h3>
+        <p class="mt-2 text-gray-500">
+            {% if query %}
+            No texts matching "{{ query }}" were found.
+            {% elif current_author %}
+            No texts by {{ current_author }} were found.
+            {% elif current_language %}
+            No texts in {{ current_language }} were found.
+            {% elif show_favorites %}
+            You haven't added any texts to your favorites yet.
+            {% else %}
+            No texts are available in the catalog.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

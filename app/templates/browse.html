@@ -12,7 +12,21 @@
 {% endblock %}
 
 {% block content %}
-<div x-data="{ selectedTab: 'authors', filterOpen: false }">
+<div
+    x-data="{
+        selectedTab: 'authors',
+        filterOpen: false,
+        search: '',
+        expandedAuthors: JSON.parse(localStorage.getItem('expandedAuthors') || '{}'),
+        toggleAuthor(author) {
+            this.expandedAuthors[author] = !this.expandedAuthors[author];
+            localStorage.setItem('expandedAuthors', JSON.stringify(this.expandedAuthors));
+        },
+        isExpanded(author) {
+            return this.expandedAuthors[author] === true;
+        }
+    }"
+>
     <!-- Browse header -->
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900">
@@ -55,12 +69,30 @@
                 </li>
             </ul>
             
-            <button @click="filterOpen = !filterOpen" class="text-gray-500 hover:text-blue-600 font-medium flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                Filters
-            </button>
+            <div class="flex space-x-2">
+                <!-- Search input -->
+                <div class="relative">
+                    <input
+                        type="text"
+                        x-model="search"
+                        placeholder="Search..."
+                        class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        hx-post="/search"
+                        hx-trigger="keyup changed delay:500ms"
+                        hx-target="#search-results"
+                        hx-vals='{"q": search}'
+                    >
+                    <div id="search-results" class="absolute z-10 w-full mt-1 bg-white shadow-lg rounded-lg overflow-hidden"></div>
+                </div>
+                
+                <!-- Filter button -->
+                <button @click="filterOpen = !filterOpen" class="text-gray-500 hover:text-blue-600 font-medium flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    Filters
+                </button>
+            </div>
         </div>
         
         <!-- Filter panel -->
@@ -83,7 +115,145 @@
     </div>
     {% endif %}
     
-    <!-- Text grid -->
+    {% if hierarchical_texts %}
+    <!-- Hierarchical text display -->
+    <div class="space-y-6">
+        {% for author_id, author in hierarchical_texts.items() %}
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <!-- Author header -->
+            <div 
+                class="p-4 bg-gray-50 flex justify-between items-center cursor-pointer" 
+                @click="toggleAuthor('{{ author.name }}')"
+                data-author="{{ author.name }}"
+            >
+                <h2 class="text-xl font-bold text-gray-800">{{ author.name }}</h2>
+                <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    class="h-5 w-5 transition-transform" 
+                    :class="isExpanded('{{ author.name }}') ? 'transform rotate-180' : ''"
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+            
+            <!-- Works -->
+            <div x-show="isExpanded('{{ author.name }}')" class="p-4 divide-y divide-gray-100">
+                {% for work_id, work in author.works.items() %}
+                <div class="py-4 first:pt-0 last:pb-0">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">{{ work.title }}</h3>
+                    
+                    <!-- Editions -->
+                    {% if work.editions %}
+                    <div class="mb-3">
+                        <h4 class="text-sm uppercase text-gray-500 font-medium mb-2">Editions</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {% for edition_id, edition in work.editions.items() %}
+                            <div class="bg-white rounded border border-gray-200 p-3 hover:shadow-sm transition-shadow">
+                                <div class="flex justify-between mb-2">
+                                    <span class="text-sm text-gray-500">{{ edition.editor if edition.editor else "Unknown editor" }}</span>
+                                    <span class="inline-block bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 text-xs">{{ edition.language }}</span>
+                                </div>
+                                
+                                <a href="/read/{{ edition.path }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                                    {{ edition.label }}
+                                </a>
+                                
+                                <div class="flex justify-end mt-2">
+                                    <button
+                                        hx-post="/favorite/{{ edition.path }}"
+                                        hx-swap="none"
+                                        class="text-gray-400 hover:text-yellow-500 focus:outline-none mr-2"
+                                        onclick="this.classList.toggle('text-yellow-500'); this.classList.toggle('text-gray-400');"
+                                        title="Add to favorites"
+                                    >
+                                        {% if edition.favorite %}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                        {% else %}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        {% endif %}
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                        </svg>
+                                    </button>
+                                    
+                                    <button
+                                        hx-post="/archive/{{ edition.path }}"
+                                        hx-swap="none"
+                                        class="text-gray-400 hover:text-red-500 focus:outline-none"
+                                        title="Archive text"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                                            <path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Translations -->
+                    {% if work.translations %}
+                    <div>
+                        <h4 class="text-sm uppercase text-gray-500 font-medium mb-2">Translations</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {% for translation_id, translation in work.translations.items() %}
+                            <div class="bg-white rounded border border-gray-200 p-3 hover:shadow-sm transition-shadow">
+                                <div class="flex justify-between mb-2">
+                                    <span class="text-sm text-gray-500">{{ translation.translator if translation.translator else "Unknown translator" }}</span>
+                                    <span class="inline-block bg-green-100 text-green-800 rounded-full px-2 py-0.5 text-xs">{{ translation.language }}</span>
+                                </div>
+                                
+                                <a href="/read/{{ translation.path }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                                    {{ translation.label }}
+                                </a>
+                                
+                                <div class="flex justify-end mt-2">
+                                    <button
+                                        hx-post="/favorite/{{ translation.path }}"
+                                        hx-swap="none"
+                                        class="text-gray-400 hover:text-yellow-500 focus:outline-none mr-2"
+                                        onclick="this.classList.toggle('text-yellow-500'); this.classList.toggle('text-gray-400');"
+                                        title="Add to favorites"
+                                    >
+                                        {% if translation.favorite %}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                        {% else %}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        {% endif %}
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                        </svg>
+                                    </button>
+                                    
+                                    <button
+                                        hx-post="/archive/{{ translation.path }}"
+                                        hx-swap="none"
+                                        class="text-gray-400 hover:text-red-500 focus:outline-none"
+                                        title="Archive text"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                                            <path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Legacy text grid for non-hierarchical data -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for text in texts %}
         <div class="relative bg-white rounded-lg shadow border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
@@ -119,9 +289,10 @@
         </div>
         {% endfor %}
     </div>
+    {% endif %}
     
     <!-- No results message -->
-    {% if texts|length == 0 %}
+    {% if (texts|length == 0 and not hierarchical_texts) or (hierarchical_texts and hierarchical_texts|length == 0) %}
     <div class="text-center py-12">
         <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
