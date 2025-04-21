@@ -1,4 +1,4 @@
-# Revised Eulogos Hierarchical Implementation Plan
+# Eulogos Hierarchical Implementation Plan
 
 ## Core Principles
 
