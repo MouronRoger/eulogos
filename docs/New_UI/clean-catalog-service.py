@@ -1,8 +1,8 @@
-"""Catalog service enhancements for Eulogos application.
+"""Catalog service for Eulogos application.
 
-This module extends the CatalogService with methods to support hierarchical
-organization of texts by author and work, while maintaining the canonical
-path-based reference system.
+This module provides a clean implementation of the catalog service with a
+hierarchical organization of texts by author and work, while maintaining
+the canonical path-based reference system.
 """
 
 import json
@@ -35,9 +35,12 @@ class CatalogService:
         
         # Load catalog on initialization
         self.load_catalog()
+    
+    def _extract_texts_from_hierarchical(self, hierarchical_data: Dict[str, Any]) -> List[Text]:
+        """Extract flat list of Text objects from hierarchical catalog data.
         
-    def _transform_hierarchical_to_flat(self, hierarchical_data: Dict[str, Any]) -> List[Text]:
-        """Transform hierarchical catalog data to flat list of Text objects.
+        This is used internally to create the Text objects from the JSON data.
+        All text references use the canonical path as the identifier.
         
         Args:
             hierarchical_data: Hierarchical catalog data from integrated_catalog.json
@@ -51,7 +54,7 @@ class CatalogService:
         for author_id, author_data in hierarchical_data.items():
             author_name = author_data.get("name", author_id)
             
-            # Extract author metadata
+            # Extract author metadata with safe fallbacks
             century = author_data.get("century", "Unknown")
             era = author_data.get("era", "Unknown")
             author_type = author_data.get("type", "Unknown")
@@ -65,6 +68,7 @@ class CatalogService:
                 for edition_id, edition_data in work_data.get("editions", {}).items():
                     path = edition_data.get("path")
                     if not path:
+                        logger.warning(f"Missing path for edition {edition_id} of work {work_id} by {author_name}")
                         continue
                         
                     # Create metadata dictionary with author metadata
@@ -100,6 +104,7 @@ class CatalogService:
                 for translation_id, translation_data in work_data.get("translations", {}).items():
                     path = translation_data.get("path")
                     if not path:
+                        logger.warning(f"Missing path for translation {translation_id} of work {work_id} by {author_name}")
                         continue
                         
                     # Create metadata dictionary with author metadata
@@ -152,8 +157,8 @@ class CatalogService:
             with open(self.catalog_path, "r", encoding="utf-8") as f:
                 hierarchical_data = json.load(f)
             
-            # Transform hierarchical data to flat list
-            texts = self._transform_hierarchical_to_flat(hierarchical_data)
+            # Extract flat list of texts from hierarchical data
+            texts = self._extract_texts_from_hierarchical(hierarchical_data)
             
             # Create Catalog object
             self._catalog = Catalog(texts=texts)
@@ -231,22 +236,16 @@ class CatalogService:
             logger.error(f"Error saving catalog: {e}")
             return False
     
-    def get_all_texts(self, include_archived: bool = False) -> List[Text]:
-        """Get all texts in the catalog.
+    def get_text_by_path(self, path: str) -> Optional[Text]:
+        """Get a text by its path.
         
         Args:
-            include_archived: Whether to include archived texts
+            path: The path to the text
             
         Returns:
-            List of all texts
+            The text if found, None otherwise
         """
-        if not self._catalog:
-            return []
-        
-        if include_archived:
-            return self._catalog.texts
-        
-        return [text for text in self._catalog.texts if not text.archived]
+        return self._texts_by_path.get(path)
     
     def get_hierarchical_texts(self, include_archived: bool = False) -> Dict[str, Dict]:
         """Get texts organized hierarchically by author.
@@ -274,7 +273,7 @@ class CatalogService:
             
             # Ensure author exists in hierarchical structure
             if text.author not in hierarchical:
-                # Extract author metadata
+                # Extract author metadata (with safe fallbacks)
                 author_metadata = text.metadata.get("author_metadata", {})
                 century = author_metadata.get("century", "Unknown")
                 era = author_metadata.get("era", "Unknown")
@@ -343,11 +342,11 @@ class CatalogService:
         hierarchical = {}
         
         for text in texts:
-            # Get author metadata for filtering
+            # Get author metadata for filtering (with safe fallbacks)
             author_metadata = text.metadata.get("author_metadata", {})
-            text_century = author_metadata.get("century")
-            text_era = author_metadata.get("era")
-            text_author_type = author_metadata.get("type")
+            text_century = author_metadata.get("century", "Unknown")
+            text_era = author_metadata.get("era", "Unknown")
+            text_author_type = author_metadata.get("type", "Unknown")
             
             # Apply metadata filters
             if era and text_era != era:
@@ -374,9 +373,9 @@ class CatalogService:
             if text.author not in hierarchical:
                 hierarchical[text.author] = {
                     "metadata": {
-                        "century": text_century or "Unknown",
-                        "era": text_era or "Unknown",
-                        "type": text_author_type or "Unknown"
+                        "century": text_century,
+                        "era": text_era,
+                        "type": text_author_type
                     },
                     "works": {}
                 }
@@ -392,68 +391,6 @@ class CatalogService:
             hierarchical[text.author]["works"][work_id]["texts"].append(text)
         
         return hierarchical
-    
-    def get_text_by_path(self, path: str) -> Optional[Text]:
-        """Get a text by its path.
-        
-        Args:
-            path: The path to the text
-            
-        Returns:
-            The text if found, None otherwise
-        """
-        return self._texts_by_path.get(path)
-    
-    def get_texts_by_author(self, author: str, include_archived: bool = False) -> List[Text]:
-        """Get all texts by a specific author.
-        
-        Args:
-            author: The author name
-            include_archived: Whether to include archived texts
-            
-        Returns:
-            List of texts by the author
-        """
-        if not self._catalog:
-            return []
-        
-        texts = [
-            text for text in self._catalog.texts 
-            if text.author == author and (include_archived or not text.archived)
-        ]
-        
-        return texts
-    
-    def get_texts_by_language(self, language: str, include_archived: bool = False) -> List[Text]:
-        """Get all texts in a specific language.
-        
-        Args:
-            language: The language code
-            include_archived: Whether to include archived texts
-            
-        Returns:
-            List of texts in the language
-        """
-        if not self._catalog:
-            return []
-        
-        texts = [
-            text for text in self._catalog.texts 
-            if text.language == language and (include_archived or not text.archived)
-        ]
-        
-        return texts
-    
-    def get_favorite_texts(self) -> List[Text]:
-        """Get all favorited texts.
-        
-        Returns:
-            List of favorited texts
-        """
-        if not self._catalog:
-            return []
-        
-        return [text for text in self._catalog.texts if text.favorite and not text.archived]
     
     def get_all_authors(self) -> List[str]:
         """Get all unique authors.
@@ -494,48 +431,6 @@ class CatalogService:
             List of author types
         """
         return self._author_types
-    
-    def search_texts(self, query: str, include_archived: bool = False) -> List[Text]:
-        """Search for texts by title or author.
-        
-        Args:
-            query: The search query
-            include_archived: Whether to include archived texts
-            
-        Returns:
-            List of matching texts
-        """
-        if not self._catalog or not query:
-            return []
-        
-        query = query.lower()
-        
-        return [
-            text for text in self._catalog.texts 
-            if (query in text.title.lower() or query in text.author.lower())
-            and (include_archived or not text.archived)
-        ]
-    
-    def search_texts_by_title(self, query: str, include_archived: bool = False) -> List[Text]:
-        """Search for texts by title only.
-        
-        Args:
-            query: The search query
-            include_archived: Whether to include archived texts
-            
-        Returns:
-            List of matching texts
-        """
-        if not self._catalog or not query:
-            return []
-        
-        query = query.lower()
-        
-        return [
-            text for text in self._catalog.texts 
-            if query in text.title.lower()
-            and (include_archived or not text.archived)
-        ]
     
     def search_authors(self, query: str) -> List[str]:
         """Search for authors by name.

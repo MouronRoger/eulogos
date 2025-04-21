@@ -1,7 +1,7 @@
 """Browse router for Eulogos application.
 
 This module provides routes for browsing texts with hierarchical organization by author
-and filtering by various criteria.
+and filtering by various criteria, using consistent path-based references.
 """
 
 from fastapi import APIRouter, Request, Depends, Query
@@ -9,11 +9,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from typing import Optional
 
-from app.config import get_settings
 from app.services.catalog_service import CatalogService, get_catalog_service
-
-# Get settings
-settings = get_settings()
 
 # Initialize router
 router = APIRouter(
@@ -30,7 +26,7 @@ async def root(
     request: Request,
     catalog_service: CatalogService = Depends(get_catalog_service)
 ):
-    """Render home page (redirects to browse)."""
+    """Render home page with hierarchical browsing."""
     # Get hierarchical view data
     hierarchical_texts = catalog_service.get_hierarchical_texts()
     
@@ -39,7 +35,6 @@ async def root(
         {
             "request": request,
             "hierarchical_texts": hierarchical_texts,
-            "texts": [],  # Not used in hierarchical view
             "authors": catalog_service.get_all_authors(),
             "languages": catalog_service.get_all_languages(),
             "eras": catalog_service.get_all_eras(),
@@ -64,18 +59,73 @@ async def browse_texts(
     catalog_service: CatalogService = Depends(get_catalog_service)
 ):
     """Browse texts with optional filtering."""
-    # Determine which texts to show based on filters
-    texts = []
-    hierarchical_texts = {}
-    
+    # Handle single author view (returns texts directly)
     if author:
-        # Single author view (flat list)
-        texts = catalog_service.get_texts_by_author(author, include_archived=show_archived)
+        # Get all texts by this author
+        filtered_texts = catalog_service.get_filtered_hierarchical_texts(
+            author_query=author,
+            include_archived=show_archived
+        )
+        
+        # For author view, we only have one author in the hierarchy
+        return templates.TemplateResponse(
+            "browse.html", 
+            {
+                "request": request,
+                "hierarchical_texts": filtered_texts,
+                "authors": catalog_service.get_all_authors(),
+                "languages": catalog_service.get_all_languages(),
+                "eras": catalog_service.get_all_eras(),
+                "centuries": catalog_service.get_all_centuries(),
+                "author_types": catalog_service.get_all_author_types(),
+                "current_author": author,
+            }
+        )
+    
+    # Handle single language view
     elif language:
-        # Single language view (flat list)
-        texts = catalog_service.get_texts_by_language(language, include_archived=show_archived)
+        # Get filtered hierarchical texts for this language
+        # We need to do post-filtering because language is a text property, not author property
+        hierarchical_texts = catalog_service.get_hierarchical_texts(include_archived=show_archived)
+        
+        # Filter to only include texts in the specified language
+        filtered_hierarchical = {}
+        
+        for author_name, author_data in hierarchical_texts.items():
+            filtered_works = {}
+            
+            for work_id, work_data in author_data["works"].items():
+                filtered_texts = [text for text in work_data["texts"] if text.language == language]
+                
+                if filtered_texts:
+                    filtered_works[work_id] = {
+                        "title": work_data["title"],
+                        "texts": filtered_texts
+                    }
+            
+            if filtered_works:
+                filtered_hierarchical[author_name] = {
+                    "metadata": author_data["metadata"],
+                    "works": filtered_works
+                }
+        
+        return templates.TemplateResponse(
+            "browse.html", 
+            {
+                "request": request,
+                "hierarchical_texts": filtered_hierarchical,
+                "authors": catalog_service.get_all_authors(),
+                "languages": catalog_service.get_all_languages(),
+                "eras": catalog_service.get_all_eras(),
+                "centuries": catalog_service.get_all_centuries(),
+                "author_types": catalog_service.get_all_author_types(),
+                "current_language": language,
+            }
+        )
+    
+    # Handle all other filter combinations
     else:
-        # Hierarchical view with filtering
+        # Get hierarchical texts with filtering
         hierarchical_texts = catalog_service.get_filtered_hierarchical_texts(
             era=era,
             century=century,
@@ -85,30 +135,27 @@ async def browse_texts(
             show_favorites=show_favorites,
             include_archived=show_archived
         )
-    
-    # Render browse template
-    return templates.TemplateResponse(
-        "browse.html", 
-        {
-            "request": request,
-            "texts": texts,
-            "hierarchical_texts": hierarchical_texts,
-            "authors": catalog_service.get_all_authors(),
-            "languages": catalog_service.get_all_languages(),
-            "eras": catalog_service.get_all_eras(),
-            "centuries": catalog_service.get_all_centuries(),
-            "author_types": catalog_service.get_all_author_types(),
-            "current_author": author,
-            "current_language": language,
-            "current_era": era,
-            "current_century": century,
-            "current_author_type": author_type,
-            "query": query,
-            "author_query": author_query,
-            "show_favorites": show_favorites,
-            "show_archived": show_archived,
-        }
-    )
+        
+        # Render browse template
+        return templates.TemplateResponse(
+            "browse.html", 
+            {
+                "request": request,
+                "hierarchical_texts": hierarchical_texts,
+                "authors": catalog_service.get_all_authors(),
+                "languages": catalog_service.get_all_languages(),
+                "eras": catalog_service.get_all_eras(),
+                "centuries": catalog_service.get_all_centuries(),
+                "author_types": catalog_service.get_all_author_types(),
+                "current_era": era,
+                "current_century": century,
+                "current_author_type": author_type,
+                "query": query,
+                "author_query": author_query,
+                "show_favorites": show_favorites,
+                "show_archived": show_archived,
+            }
+        )
 
 
 @router.get("/search", response_class=HTMLResponse)
@@ -124,7 +171,14 @@ async def search_texts_htmx(
             {"request": request, "texts": [], "query": ""}
         )
     
-    texts = catalog_service.search_texts(q)
+    # Search by title or author (flat list for dropdown results)
+    hierarchical = catalog_service.get_filtered_hierarchical_texts(query=q)
+    
+    # Flatten hierarchical results for the dropdown
+    texts = []
+    for author_data in hierarchical.values():
+        for work_data in author_data["works"].values():
+            texts.extend(work_data["texts"])
     
     return templates.TemplateResponse(
         "partials/search_results.html",
